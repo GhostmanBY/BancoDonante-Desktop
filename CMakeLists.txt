@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
-    Sql
+    Network
 )
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
@@ -44,5 +44,5 @@ endif()
 target_link_libraries(bancosangre PRIVATE
     Qt6::Core
     Qt6::Widgets
-    Qt6::Sql
+    Qt6::Network
 )
