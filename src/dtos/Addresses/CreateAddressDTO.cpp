@@ -11,7 +11,6 @@ CreateAddressDTO::CreateAddressDTO(
     std::optional<QString> neighborhood,
     std::optional<QString> city,
     std::optional<QString> postalCode,
-    std::optional<QString> country,
     std::optional<QString> floor,
     std::optional<QString> apartment,
     std::optional<QString> betweenStreets,
@@ -22,7 +21,6 @@ CreateAddressDTO::CreateAddressDTO(
       neighborhood(std::move(neighborhood)),
       city(std::move(city)),
       postalCode(std::move(postalCode)),
-      country(std::move(country)),
       floor(std::move(floor)),
       apartment(std::move(apartment)),
       betweenStreets(std::move(betweenStreets)),
@@ -51,9 +49,6 @@ CreateAddressDTO::CreateAddressDTO(
     if (this->postalCode.has_value() && this->postalCode->size() > 15) {
         throw InvalidValueException(QStringLiteral("postal_code"));
     }
-    if (this->country.has_value() && this->country->size() > 100) {
-        throw InvalidValueException(QStringLiteral("country"));
-    }
     if (this->floor.has_value() && this->floor->size() > 10) {
         throw InvalidValueException(QStringLiteral("floor"));
     }
@@ -77,7 +72,6 @@ QJsonObject CreateAddressDTO::toJson() const
     json.insert(QStringLiteral("city"), city.has_value() ? *city : QJsonValue());
     json.insert(QStringLiteral("postal_code"),
                 postalCode.has_value() ? *postalCode : QJsonValue());
-    json.insert(QStringLiteral("country"), country.has_value() ? *country : QJsonValue());
     json.insert(QStringLiteral("floor"), floor.has_value() ? *floor : QJsonValue());
     json.insert(QStringLiteral("apartment"), apartment.has_value() ? *apartment : QJsonValue());
     json.insert(QStringLiteral("between_streets"),

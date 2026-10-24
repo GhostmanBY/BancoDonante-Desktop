@@ -8,10 +8,12 @@
 CreateRestraintDTO::CreateRestraintDTO(
     QString motivo,
     QDateTime estimatedStartDate,
-    QDateTime estimatedEndDate)
+    QDateTime estimatedEndDate,
+    int templateId)
     : motivo(std::move(motivo)),
       estimatedStartDate(std::move(estimatedStartDate)),
-      estimatedEndDate(std::move(estimatedEndDate))
+      estimatedEndDate(std::move(estimatedEndDate)),
+      templateId(templateId)
 {
     if (this->motivo.trimmed().isEmpty()) {
         throw MissingValueException(QStringLiteral("motivo"));
@@ -44,5 +46,8 @@ QJsonObject CreateRestraintDTO::toJson() const
                 estimatedStartDate.toString(QStringLiteral("yyyy-MM-dd")));
     json.insert(QStringLiteral("estimated_end_date"),
                 estimatedEndDate.toString(QStringLiteral("yyyy-MM-dd")));
+    if (templateId > 0) {
+        json.insert(QStringLiteral("template_id"), templateId);
+    }
     return json;
 }
