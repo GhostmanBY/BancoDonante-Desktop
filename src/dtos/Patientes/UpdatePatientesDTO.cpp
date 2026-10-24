@@ -15,7 +15,8 @@ UpdatePatientesDTO::UpdatePatientesDTO(
     PatientState stateDonation,
     Sex sex,
     double peso,
-    double altura)
+    double altura,
+    BloodGroup bloodGroup)
     : UpdatePersonesDTO(
           id,
           std::move(name),
@@ -29,7 +30,8 @@ UpdatePatientesDTO::UpdatePatientesDTO(
       stateDonation(stateDonation),
       sex(sex),
       peso(peso),
-      altura(altura)
+      altura(altura),
+      bloodGroup(bloodGroup)
 {
     if (this->peso < 30 || this->peso > 300) {
         throw OutOfRangeException(QStringLiteral("peso"), QStringLiteral("30 y 300 kg"));
@@ -47,5 +49,6 @@ QJsonObject UpdatePatientesDTO::toJson() const
     json.insert(QStringLiteral("sex"), ::toString(sex));
     json.insert(QStringLiteral("peso"), peso);
     json.insert(QStringLiteral("altura"), altura);
+    json.insert(QStringLiteral("blood_group"), ::toString(bloodGroup));
     return json;
 }
