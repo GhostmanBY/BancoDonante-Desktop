@@ -12,7 +12,6 @@ Addresses Addresses::fromJson(const QJsonObject &json)
     model.m_neighborhood = jsonutils::optString(json, QStringLiteral("neighborhood"));
     model.m_city = jsonutils::optString(json, QStringLiteral("city"));
     model.m_postalCode = jsonutils::optString(json, QStringLiteral("postal_code"));
-    model.m_country = jsonutils::optString(json, QStringLiteral("country"));
     model.m_floor = jsonutils::optString(json, QStringLiteral("floor"));
     model.m_apartment = jsonutils::optString(json, QStringLiteral("apartment"));
     model.m_betweenStreets = jsonutils::optString(json, QStringLiteral("between_streets"));
@@ -33,7 +32,6 @@ QJsonObject Addresses::toJson() const
     json.insert(QStringLiteral("city"), m_city.has_value() ? *m_city : QJsonValue());
     json.insert(QStringLiteral("postal_code"),
                 m_postalCode.has_value() ? *m_postalCode : QJsonValue());
-    json.insert(QStringLiteral("country"), m_country.has_value() ? *m_country : QJsonValue());
     json.insert(QStringLiteral("floor"), m_floor.has_value() ? *m_floor : QJsonValue());
     json.insert(QStringLiteral("apartment"),
                 m_apartment.has_value() ? *m_apartment : QJsonValue());

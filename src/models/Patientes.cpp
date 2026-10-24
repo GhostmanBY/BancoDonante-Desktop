@@ -14,6 +14,17 @@ Patientes Patientes::fromJson(const QJsonObject &json)
         Sex::M);
     model.m_peso = jsonutils::optDouble(json, QStringLiteral("peso"));
     model.m_altura = jsonutils::optDouble(json, QStringLiteral("altura"));
+
+    const auto bloodGroupRaw = jsonutils::optString(json, QStringLiteral("blood_group"));
+    model.m_bloodGroup = bloodGroupRaw.has_value()
+        ? std::optional(bloodGroupFromString(*bloodGroupRaw, BloodGroup::O_POS))
+        : std::nullopt;
+
+    const auto lastDonationRaw = jsonutils::optString(json, QStringLiteral("last_donation_date"));
+    model.m_lastDonationDate = lastDonationRaw.has_value()
+        ? std::optional(jsonutils::parseDateTime(*lastDonationRaw))
+        : std::nullopt;
+
     return model;
 }
 
@@ -24,6 +35,10 @@ QJsonObject Patientes::toJson() const
     json.insert(QStringLiteral("sex"), ::toString(m_sex));
     json.insert(QStringLiteral("peso"), m_peso.has_value() ? *m_peso : QJsonValue());
     json.insert(QStringLiteral("altura"), m_altura.has_value() ? *m_altura : QJsonValue());
+    json.insert(
+        QStringLiteral("blood_group"),
+        m_bloodGroup.has_value() ? ::toString(*m_bloodGroup) : QJsonValue()
+    );
     return json;
 }
 
