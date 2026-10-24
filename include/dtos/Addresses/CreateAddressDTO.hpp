@@ -15,7 +15,6 @@ public:
         std::optional<QString> neighborhood = std::nullopt,
         std::optional<QString> city = std::nullopt,
         std::optional<QString> postalCode = std::nullopt,
-        std::optional<QString> country = std::nullopt,
         std::optional<QString> floor = std::nullopt,
         std::optional<QString> apartment = std::nullopt,
         std::optional<QString> betweenStreets = std::nullopt,
@@ -29,7 +28,6 @@ public:
     std::optional<QString> neighborhood;
     std::optional<QString> city;
     std::optional<QString> postalCode;
-    std::optional<QString> country;
     std::optional<QString> floor;
     std::optional<QString> apartment;
     std::optional<QString> betweenStreets;

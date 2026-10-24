@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QJsonObject>
 #include <QString>
+#include <optional>
 
 class CreateAppointmentDTO
 {
@@ -14,7 +15,9 @@ public:
         QDateTime appointmentDatetime,
         AppointmentType type,
         int patientId,
-        QString observation);
+        QString observation,
+        std::optional<int> typeDonationId = std::nullopt,
+        QString seriesAction = QString());
 
     QJsonObject toJson() const;
 
@@ -22,6 +25,8 @@ public:
     AppointmentType type;
     int patientId;
     QString observation;
+    std::optional<int> typeDonationId;
+    QString seriesAction;
 };
 
 #endif

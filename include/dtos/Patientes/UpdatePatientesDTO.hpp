@@ -2,6 +2,7 @@
 #define UPDATEPATIENTESDTO_H
 
 #include "dtos/Persones/UpdatePersonesDTO.hpp"
+#include "models/enums/BloodGroup.hpp"
 #include "models/enums/PatientState.hpp"
 #include "models/enums/Sex.hpp"
 
@@ -21,7 +22,8 @@ public:
         PatientState stateDonation,
         Sex sex,
         double peso,
-        double altura);
+        double altura,
+        BloodGroup bloodGroup);
 
     QJsonObject toJson() const override;
 
@@ -29,6 +31,7 @@ public:
     Sex sex;
     double peso;
     double altura;
+    BloodGroup bloodGroup;
 };
 
 #endif
