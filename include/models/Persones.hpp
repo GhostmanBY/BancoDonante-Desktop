@@ -27,6 +27,7 @@ public:
     std::optional<QDateTime> birthDate() const { return m_birthDate; }
     std::optional<QString> birthPlace() const { return m_birthPlace; }
     bool isActive() const { return m_isActive; }
+    void setActive(bool active) { m_isActive = active; }
 
 protected:
     int m_id = 0;

@@ -26,6 +26,19 @@ inline QString toString(AppointmentState value)
     return {};
 }
 
+inline QString appointmentStateLabel(AppointmentState value)
+{
+    switch (value) {
+    case AppointmentState::PENDING: return QStringLiteral("Pendiente");
+    case AppointmentState::CONFIRMED: return QStringLiteral("Confirmado");
+    case AppointmentState::COMPLETED: return QStringLiteral("Completado");
+    case AppointmentState::CANCELLED: return QStringLiteral("Cancelado");
+    case AppointmentState::RESCHEDULED: return QStringLiteral("Reprogramado");
+    case AppointmentState::NO_SHOW: return QStringLiteral("Ausente");
+    }
+    return {};
+}
+
 inline AppointmentState appointmentStateFromString(const QString &value, AppointmentState fallback)
 {
     if (value == QLatin1String("pending")) return AppointmentState::PENDING;

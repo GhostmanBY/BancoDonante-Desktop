@@ -22,7 +22,6 @@ public:
     std::optional<QString> neighborhood() const { return m_neighborhood; }
     std::optional<QString> city() const { return m_city; }
     std::optional<QString> postalCode() const { return m_postalCode; }
-    std::optional<QString> country() const { return m_country; }
     std::optional<QString> floor() const { return m_floor; }
     std::optional<QString> apartment() const { return m_apartment; }
     std::optional<QString> betweenStreets() const { return m_betweenStreets; }
@@ -36,7 +35,6 @@ private:
     std::optional<QString> m_neighborhood;
     std::optional<QString> m_city;
     std::optional<QString> m_postalCode;
-    std::optional<QString> m_country;
     std::optional<QString> m_floor;
     std::optional<QString> m_apartment;
     std::optional<QString> m_betweenStreets;

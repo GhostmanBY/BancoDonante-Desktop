@@ -31,4 +31,34 @@ inline UserRole userRoleFromString(const QString &value, UserRole fallback)
     return fallback;
 }
 
+inline QString userRoleLabel(UserRole value)
+{
+    switch (value) {
+    case UserRole::AREA_MANAGER: return QStringLiteral("Responsable de área");
+    case UserRole::NURSE: return QStringLiteral("Enfermero");
+    case UserRole::MEDICAL: return QStringLiteral("Médico");
+    case UserRole::ADMIN: return QStringLiteral("Administrador");
+    }
+    return {};
+}
+
+// Jerarquía: admin > area_manager > medical > nurse (mayor = más poder).
+inline int roleRank(UserRole value)
+{
+    switch (value) {
+    case UserRole::ADMIN: return 4;
+    case UserRole::AREA_MANAGER: return 3;
+    case UserRole::MEDICAL: return 2;
+    case UserRole::NURSE: return 1;
+    }
+    return 0;
+}
+
+// True si `higher` está estrictamente por encima de `lower`
+// (puede gestionar usuarios de ese rango).
+inline bool roleIsAbove(UserRole higher, UserRole lower)
+{
+    return roleRank(higher) > roleRank(lower);
+}
+
 #endif
