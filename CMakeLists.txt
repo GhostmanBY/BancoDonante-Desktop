@@ -27,6 +27,13 @@ qt_add_executable(bancosangre
     ${HEADERS}
 )
 
+qt_add_resources(bancosangre "app_resources"
+    PREFIX "/"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}"
+    FILES
+        "resources/theme.qss"
+)
+
 target_include_directories(bancosangre PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
