@@ -11,7 +11,9 @@ find_package(Qt6 REQUIRED COMPONENTS
     Network
 )
 
-find_package(PkgConfig REQUIRED)
+if(UNIX AND NOT WIN32)
+    find_package(PkgConfig REQUIRED)
+endif()
 pkg_check_modules(QRCODEGEN REQUIRED IMPORTED_TARGET qrcodegencpp)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
