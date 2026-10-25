@@ -17,6 +17,7 @@ struct DashboardStats
     int donantesSinContacto = 0;
     int turnosHoyPendientes = 0;
     int turnosHoyConfirmados = 0;
+    int turnosHoyRealizados = 0;
     int donacionesMes = 0;
 
     static DashboardStats fromJson(const QJsonObject &json);
