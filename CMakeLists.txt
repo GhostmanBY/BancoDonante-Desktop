@@ -11,9 +11,13 @@ find_package(Qt6 REQUIRED COMPONENTS
     Network
 )
 
-if(UNIX AND NOT WIN32)
+if(WIN32)
+    # Buscar la dependencia de forma compatible con Windows
+else()
     find_package(PkgConfig REQUIRED)
+    # Configuración actual de Linux
 endif()
+
 pkg_check_modules(QRCODEGEN REQUIRED IMPORTED_TARGET qrcodegencpp)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
