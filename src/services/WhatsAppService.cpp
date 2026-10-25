@@ -60,8 +60,8 @@ void WhatsAppService::fetchActiveTemplates()
     query.addQueryItem(QStringLiteral("size"), QStringLiteral("100"));
     handle(m_api.get(QStringLiteral("wsp-templates?") + query.toString(QUrl::FullyEncoded)),
         [this](const QByteArray &body) {
-            const QJsonArray data = QJsonDocument::fromJson(body).object()
-                .value(QStringLiteral("data")).toArray();
+            const QJsonObject response = QJsonDocument::fromJson(body).object();
+            const QJsonArray data = response.value(QStringLiteral("data")).toArray();
             QList<WSPTemplateOption> templates;
             for (const QJsonValue &value : data) {
                 const QJsonObject item = value.toObject();
@@ -77,6 +77,56 @@ void WhatsAppService::fetchActiveTemplates()
         });
 }
 
+void WhatsAppService::fetchTemplates()
+{
+    prepare();
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("page"), QStringLiteral("1"));
+    query.addQueryItem(QStringLiteral("size"), QStringLiteral("100"));
+    handle(m_api.get(QStringLiteral("wsp-templates?") + query.toString(QUrl::FullyEncoded)),
+        [this](const QByteArray &body) {
+            const QJsonObject response = QJsonDocument::fromJson(body).object();
+            const QJsonArray data = response.value(QStringLiteral("data")).toArray();
+            QList<WSPTemplateItem> templates;
+            templates.reserve(data.size());
+            for (const QJsonValue &value : data) {
+                const QJsonObject item = value.toObject();
+                WSPTemplateItem templateItem;
+                templateItem.id = item.value(QStringLiteral("id")).toInt();
+                templateItem.motive = item.value(QStringLiteral("motive")).toString();
+                templateItem.name = item.value(QStringLiteral("name")).toString();
+                templateItem.text = item.value(QStringLiteral("text")).toString();
+                templateItem.isActive = item.value(QStringLiteral("is_active")).toBool();
+                if (templateItem.id > 0) {
+                    templates.append(templateItem);
+                }
+            }
+            emit managedTemplatesFetched(templates);
+        });
+}
+
+void WhatsAppService::updateTemplate(int id, const QString &motive, const QString &name, const QString &text)
+{
+    prepare();
+    QJsonObject body;
+    body.insert(QStringLiteral("motive"), motive);
+    body.insert(QStringLiteral("name"), name);
+    body.insert(QStringLiteral("text"), text);
+    handle(m_api.put(QStringLiteral("wsp-templates/%1").arg(id), body), [this, id](const QByteArray &) {
+        emit templateSaved(id);
+    });
+}
+
+void WhatsAppService::setTemplateActive(int id, bool active)
+{
+    prepare();
+    const QString action = active ? QStringLiteral("activate") : QStringLiteral("deactivate");
+    handle(m_api.patch(QStringLiteral("wsp-templates/%1/%2").arg(id).arg(action), {}),
+        [this, id, active](const QByteArray &) {
+            emit templateActivationChanged(id, active);
+        });
+}
+
 void WhatsAppService::enqueue(int patientId, const QString &motive)
 {
     prepare();
@@ -86,4 +136,55 @@ void WhatsAppService::enqueue(int patientId, const QString &motive)
     handle(m_api.post(QStringLiteral("wsp-queues"), body), [this](const QByteArray &) {
         emit enqueueSucceeded();
     });
+}
+
+void WhatsAppService::fetchPendingInboundReviews()
+{
+    prepare();
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("page"), QStringLiteral("1"));
+    query.addQueryItem(QStringLiteral("size"), QStringLiteral("100"));
+    handle(m_api.get(QStringLiteral("wsp-inbound-messages?") + query.toString(QUrl::FullyEncoded)),
+        [this](const QByteArray &body) {
+            const QJsonObject response = QJsonDocument::fromJson(body).object();
+            const QJsonArray data = response.value(QStringLiteral("data")).toArray();
+            const int total = response.value(QStringLiteral("total")).toInt(data.size());
+            QList<WSPInboundReview> reviews;
+            reviews.reserve(data.size());
+            for (const QJsonValue &value : data) {
+                const QJsonObject item = value.toObject();
+                WSPInboundReview review;
+                review.id = item.value(QStringLiteral("id")).toInt();
+                review.patientId = item.value(QStringLiteral("patiente_id")).toInt();
+                review.appointmentId = item.value(QStringLiteral("appointment_id")).toInt();
+                review.patientName = item.value(QStringLiteral("patient_name")).toString();
+                review.senderPhone = item.value(QStringLiteral("sender_phone")).toString();
+                review.body = item.value(QStringLiteral("body")).toString();
+                review.receivedAt = item.value(QStringLiteral("received_at")).toString();
+                if (review.id > 0) {
+                    reviews.append(review);
+                }
+            }
+            emit inboundReviewsFetched(reviews, total);
+        });
+}
+
+void WhatsAppService::markInboundReviewReviewed(int id)
+{
+    prepare();
+    handle(m_api.patch(QStringLiteral("wsp-inbound-messages/%1/reviewed").arg(id), {}),
+        [this, id](const QByteArray &) {
+            emit inboundReviewMarked(id);
+        });
+}
+
+void WhatsAppService::resolveInboundReview(int id, const QString &decision)
+{
+    prepare();
+    QJsonObject body;
+    body.insert(QStringLiteral("decision"), decision);
+    handle(m_api.patch(QStringLiteral("wsp-inbound-messages/%1/resolve").arg(id), body),
+        [this, id](const QByteArray &) {
+            emit inboundReviewResolved(id);
+        });
 }

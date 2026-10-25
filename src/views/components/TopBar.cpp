@@ -1,12 +1,16 @@
 #include "views/components/TopBar.hpp"
 #include "services/WhatsAppService.hpp"
 #include <QDialog>
+#include <QDesktopServices>
 #include <QHBoxLayout>
 #include <QImage>
 #include <QLabel>
 #include <QPixmap>
 #include <QPushButton>
+#include <QRegularExpression>
+#include <QScrollArea>
 #include <QTimer>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <qrcodegen.hpp>
 
@@ -54,6 +58,111 @@ TopBar::TopBar(QWidget *parent)
     m_qrButton->setCursor(Qt::PointingHandCursor);
     m_qrButton->setVisible(false);
     m_whatsAppService = new WhatsAppService(this);
+    m_reviewButton = new QPushButton(QStringLiteral("Respuestas WhatsApp"), this);
+    m_reviewButton->setCursor(Qt::PointingHandCursor);
+    m_reviewButton->setVisible(false);
+    m_reviewTimer = new QTimer(this);
+    m_reviewTimer->setInterval(15000);
+
+    connect(m_reviewTimer, &QTimer::timeout, m_whatsAppService,
+        &WhatsAppService::fetchPendingInboundReviews);
+    connect(m_whatsAppService, &WhatsAppService::inboundReviewsFetched, this,
+        [this](const QList<WSPInboundReview> &reviews, int total) {
+            m_pendingReviews = reviews;
+            m_reviewButton->setVisible(total > 0);
+            m_reviewButton->setText(QStringLiteral("Respuestas WhatsApp (%1)").arg(total));
+        });
+    connect(m_reviewButton, &QPushButton::clicked, this, [this]() {
+        auto *dialog = new QDialog(this);
+        dialog->setWindowTitle(QStringLiteral("Respuestas de WhatsApp para revisar"));
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->resize(560, 480);
+        auto *layout = new QVBoxLayout(dialog);
+        auto *hint = new QLabel(
+            QStringLiteral("Confirmá o cancelá el turno desde aquí. Si el mensaje es ambiguo, contactá al donante por WhatsApp usando su nombre y teléfono; después podés cerrar la revisión."),
+            dialog);
+        hint->setWordWrap(true);
+        layout->addWidget(hint);
+
+        auto *scroll = new QScrollArea(dialog);
+        scroll->setWidgetResizable(true);
+        auto *content = new QWidget(scroll);
+        auto *contentLayout = new QVBoxLayout(content);
+        for (const WSPInboundReview &review : m_pendingReviews) {
+            auto *card = new QWidget(content);
+            auto *cardLayout = new QVBoxLayout(card);
+            auto *messageLabel = new QLabel(
+                QStringLiteral("%1 · %2\nMensaje: %3")
+                    .arg(review.patientName, review.senderPhone, review.body), card);
+            messageLabel->setWordWrap(true);
+            cardLayout->addWidget(messageLabel);
+
+            auto *actions = new QHBoxLayout();
+            auto *openChatButton = new QPushButton(QStringLiteral("Abrir WhatsApp"), card);
+            auto *confirmButton = new QPushButton(QStringLiteral("Confirmar turno"), card);
+            auto *cancelButton = new QPushButton(QStringLiteral("Cancelar turno"), card);
+            auto *reviewedButton = new QPushButton(QStringLiteral("Cerrar revisión"), card);
+            const QString phoneDigits = review.senderPhone;
+            const QString waPhone = QString(phoneDigits).remove(QRegularExpression(QStringLiteral("[^0-9]")));
+            openChatButton->setEnabled(!waPhone.isEmpty());
+            confirmButton->setEnabled(review.appointmentId > 0);
+            cancelButton->setEnabled(review.appointmentId > 0);
+            const bool hasAppointment = review.appointmentId > 0;
+            actions->addWidget(openChatButton);
+            actions->addStretch();
+            actions->addWidget(confirmButton);
+            actions->addWidget(cancelButton);
+            actions->addWidget(reviewedButton);
+            cardLayout->addLayout(actions);
+            contentLayout->addWidget(card);
+
+            connect(openChatButton, &QPushButton::clicked, card, [waPhone]() {
+                QDesktopServices::openUrl(QUrl(QStringLiteral("https://wa.me/%1").arg(waPhone)));
+            });
+            connect(confirmButton, &QPushButton::clicked, m_whatsAppService,
+                [this, review, confirmButton, cancelButton, reviewedButton]() {
+                    confirmButton->setEnabled(false);
+                    cancelButton->setEnabled(false);
+                    reviewedButton->setEnabled(false);
+                    m_whatsAppService->resolveInboundReview(review.id, QStringLiteral("confirmed"));
+                });
+            connect(cancelButton, &QPushButton::clicked, m_whatsAppService,
+                [this, review, confirmButton, cancelButton, reviewedButton]() {
+                    confirmButton->setEnabled(false);
+                    cancelButton->setEnabled(false);
+                    reviewedButton->setEnabled(false);
+                    m_whatsAppService->resolveInboundReview(review.id, QStringLiteral("cancelled"));
+                });
+            connect(reviewedButton, &QPushButton::clicked, m_whatsAppService,
+                [this, review, reviewedButton]() {
+                    reviewedButton->setEnabled(false);
+                    m_whatsAppService->markInboundReviewReviewed(review.id);
+                });
+            const int reviewId = review.id;
+            connect(m_whatsAppService, &WhatsAppService::inboundReviewResolved, card,
+                [card, reviewId](int id) {
+                    if (id == reviewId) {
+                        card->deleteLater();
+                    }
+                });
+            connect(m_whatsAppService, &WhatsAppService::inboundReviewMarked, card,
+                [card, reviewId](int id) {
+                    if (id == reviewId) {
+                        card->deleteLater();
+                    }
+                });
+            connect(m_whatsAppService, &WhatsAppService::failed, card,
+                [confirmButton, cancelButton, reviewedButton, hasAppointment](const ApiError &) {
+                    confirmButton->setEnabled(hasAppointment);
+                    cancelButton->setEnabled(hasAppointment);
+                    reviewedButton->setEnabled(true);
+                });
+        }
+        contentLayout->addStretch();
+        scroll->setWidget(content);
+        layout->addWidget(scroll);
+        dialog->open();
+    });
 
     m_logoutButton = new QPushButton(QStringLiteral("Cerrar sesión"), this);
     m_logoutButton->setCursor(Qt::PointingHandCursor);
@@ -133,6 +242,7 @@ TopBar::TopBar(QWidget *parent)
 
     layout->addLayout(userBox);
     layout->addWidget(m_qrButton);
+    layout->addWidget(m_reviewButton);
     layout->addWidget(m_logoutButton);
 }
 
@@ -142,4 +252,6 @@ void TopBar::setUser(const SessionUser &user)
     m_roleLabel->setText(roleLabel(user.role));
     const bool canLinkWhatsApp = user.role == UserRole::ADMIN || user.role == UserRole::AREA_MANAGER;
     m_qrButton->setVisible(canLinkWhatsApp);
+    m_reviewTimer->start();
+    m_whatsAppService->fetchPendingInboundReviews();
 }
