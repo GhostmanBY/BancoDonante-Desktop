@@ -23,6 +23,7 @@ struct TurnoItem
     int patientId = 0;
     QString patientName;
     QString patientLastname;
+    QString assignedUsers;
     QString observation;
     std::optional<int> typeDonationId;
 };

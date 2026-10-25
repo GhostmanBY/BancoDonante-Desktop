@@ -7,6 +7,7 @@
 
 class QLabel;
 class QPushButton;
+class WhatsAppService;
 
 class TopBar : public QFrame
 {
@@ -24,6 +25,8 @@ private:
     QLabel *m_nameLabel = nullptr;
     QLabel *m_roleLabel = nullptr;
     QPushButton *m_logoutButton = nullptr;
+    QPushButton *m_qrButton = nullptr;
+    WhatsAppService *m_whatsAppService = nullptr;
 };
 
 #endif

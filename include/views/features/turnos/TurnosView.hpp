@@ -18,6 +18,7 @@ class QPushButton;
 class QStackedWidget;
 class QTableView;
 class TurnosModel;
+class WhatsAppService;
 
 class TurnosView : public QWidget
 {
@@ -39,14 +40,18 @@ private:
     void openRescheduleDialog();
     void changeSelectedState(AppointmentState state);
     void markExpiredAsNoShow(const QList<TurnoItem> &items);
+    void updateNotifyButton();
+    void notifySelectedPatient();
     bool canWrite() const;
     std::optional<AppointmentState> selectedStateFilter() const;
 
     AppointmentService *m_service = nullptr;
+    WhatsAppService *m_whatsAppService = nullptr;
     TurnosModel *m_model = nullptr;
 
     QComboBox *m_stateCombo = nullptr;
     QPushButton *m_refreshBtn = nullptr;
+    QPushButton *m_notifyBtn = nullptr;
 
     QStackedWidget *m_bodyStack = nullptr;
     QTableView *m_table = nullptr;

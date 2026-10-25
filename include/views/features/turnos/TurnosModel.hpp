@@ -18,6 +18,7 @@ public:
         ColPaciente,
         ColTipo,
         ColEstado,
+        ColResponsable,
         ColObservacion,
         ColumnCount,
     };
