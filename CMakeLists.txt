@@ -11,6 +11,9 @@ find_package(Qt6 REQUIRED COMPONENTS
     Network
 )
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(QRCODEGEN REQUIRED IMPORTED_TARGET qrcodegencpp)
+
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
@@ -52,4 +55,5 @@ target_link_libraries(bancosangre PRIVATE
     Qt6::Core
     Qt6::Widgets
     Qt6::Network
+    PkgConfig::QRCODEGEN
 )
