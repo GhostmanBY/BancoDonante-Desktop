@@ -25,6 +25,7 @@ DashboardStats DashboardStats::fromJson(const QJsonObject &json)
     const QJsonObject today = json.value(QStringLiteral("turnos_hoy")).toObject();
     stats.turnosHoyPendientes = jsonutils::intOr(today, QStringLiteral("pending"));
     stats.turnosHoyConfirmados = jsonutils::intOr(today, QStringLiteral("confirmed"));
+    stats.turnosHoyRealizados = jsonutils::intOr(today, QStringLiteral("completed"));
 
     return stats;
 }
