@@ -58,6 +58,7 @@ TurnosPage TurnosPage::fromJson(const QJsonObject &json)
         item.patientId = jsonutils::intOr(obj, QStringLiteral("patient_id"));
         item.patientName = jsonutils::stringOr(obj, QStringLiteral("patient_name"));
         item.patientLastname = jsonutils::stringOr(obj, QStringLiteral("patient_lastname"));
+        item.assignedUsers = jsonutils::stringOr(obj, QStringLiteral("assigned_users"));
         item.observation = jsonutils::stringOr(obj, QStringLiteral("observation"));
         if (obj.contains(QStringLiteral("type_donation_id"))
             && !obj.value(QStringLiteral("type_donation_id")).isNull()) {

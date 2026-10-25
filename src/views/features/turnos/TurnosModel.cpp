@@ -94,6 +94,8 @@ QVariant TurnosModel::data(const QModelIndex &index, int role) const
             return tipoLabel(item.type);
         case ColEstado:
             return appointmentStateLabel(item.state);
+        case ColResponsable:
+            return item.assignedUsers.isEmpty() ? QStringLiteral("Sin asignar") : item.assignedUsers;
         case ColObservacion:
             return item.observation.isEmpty() ? QStringLiteral("—") : item.observation;
         }
@@ -106,7 +108,8 @@ QVariant TurnosModel::data(const QModelIndex &index, int role) const
         return {};
 
     case Qt::ForegroundRole:
-        if (column == ColFecha || column == ColPaciente || column == ColObservacion) {
+        if (column == ColFecha || column == ColPaciente || column == ColObservacion
+            || column == ColResponsable) {
             return QColor(QStringLiteral("#111827"));
         }
         if (column == ColEstado) {
@@ -147,6 +150,7 @@ QVariant TurnosModel::headerData(int section, Qt::Orientation orientation, int r
     case ColPaciente: return QStringLiteral("Paciente");
     case ColTipo: return QStringLiteral("Tipo");
     case ColEstado: return QStringLiteral("Estado");
+    case ColResponsable: return QStringLiteral("Responsable asignado");
     case ColObservacion: return QStringLiteral("Observación");
     }
     return {};

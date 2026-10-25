@@ -1,6 +1,6 @@
 #include "views/features/donantes/DonanteDetailDialog.hpp"
 
-#include "components/AppSettings.hpp"
+#include "views/components/AppSettings.hpp"
 #include "core/JsonUtils.hpp"
 #include "models/enums/BloodGroup.hpp"
 #include "models/enums/PatientState.hpp"

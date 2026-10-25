@@ -1,6 +1,6 @@
 #include "views/features/donantes/DonantesModel.hpp"
 
-#include "components/AppSettings.hpp"
+#include "views/components/AppSettings.hpp"
 
 #include <QDate>
 #include <QFont>

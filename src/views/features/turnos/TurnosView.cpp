@@ -2,16 +2,20 @@
 
 #include "models/enums/UserRole.hpp"
 #include "services/SessionManager.hpp"
+#include "services/WhatsAppService.hpp"
 #include "views/components/EmptyState.hpp"
 #include "views/components/PaginationBar.hpp"
 #include "views/components/Spinner.hpp"
 #include "views/components/Toast.hpp"
 #include "views/features/turnos/CompleteTurnoDialog.hpp"
+#include "views/features/turnos/AssignTurnoDialog.hpp"
 #include "views/features/turnos/RescheduleTurnoDialog.hpp"
 #include "views/features/turnos/TurnosModel.hpp"
 
 #include <QComboBox>
 #include <QDate>
+#include <QInputDialog>
+#include <QItemSelectionModel>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
@@ -45,6 +49,7 @@ const EstadoOption kEstadoOptions[] = {
 TurnosView::TurnosView(QWidget *parent)
     : QWidget(parent),
       m_service(new AppointmentService(this)),
+      m_whatsAppService(new WhatsAppService(this)),
       m_model(new TurnosModel(this))
 {
     buildUi();
@@ -82,6 +87,50 @@ TurnosView::TurnosView(QWidget *parent)
         loadPage(m_page);
     });
 
+    connect(m_whatsAppService, &WhatsAppService::templatesFetched, this,
+        [this](const QList<WSPTemplateOption> &templates) {
+            const QModelIndex current = m_table->currentIndex();
+            const TurnoItem *selected = current.isValid() ? m_model->itemAt(current.row()) : nullptr;
+            if (!selected || selected->state != AppointmentState::PENDING || selected->patientId <= 0) {
+                updateNotifyButton();
+                return;
+            }
+            if (templates.isEmpty()) {
+                Toast::show(this, QStringLiteral("No hay plantillas activas para notificar"), Toast::Type::Error);
+                return;
+            }
+
+            QStringList labels;
+            for (const WSPTemplateOption &option : templates) {
+                labels.append(option.name);
+            }
+            bool accepted = false;
+            const QString chosen = QInputDialog::getItem(
+                this, QStringLiteral("Notificar por WhatsApp"),
+                QStringLiteral("Elegí el motivo de la notificación:"), labels, 0, false, &accepted);
+            if (!accepted) {
+                return;
+            }
+            const int index = labels.indexOf(chosen);
+            if (index >= 0 && index < templates.size()) {
+                m_notifyBtn->setEnabled(false);
+                m_whatsAppService->enqueue(selected->patientId, templates.at(index).motive);
+            }
+        });
+
+    connect(m_whatsAppService, &WhatsAppService::enqueueSucceeded, this, [this]() {
+        Toast::show(this, QStringLiteral("Notificación agregada a la cola de WhatsApp"), Toast::Type::Success);
+        updateNotifyButton();
+    });
+
+    connect(m_whatsAppService, &WhatsAppService::failed, this, [this](const ApiError &error) {
+        const QString message = error.detail.isEmpty()
+            ? QStringLiteral("No se pudo completar la operación de WhatsApp")
+            : error.detail;
+        Toast::show(this, message, Toast::Type::Error);
+        updateNotifyButton();
+    });
+
     loadPage(1);
 }
 
@@ -104,9 +153,12 @@ void TurnosView::buildUi()
     }
 
     m_refreshBtn = new QPushButton(QStringLiteral("Refrescar"), this);
+    m_notifyBtn = new QPushButton(QStringLiteral("Notificar por WhatsApp"), this);
+    m_notifyBtn->setEnabled(false);
 
     toolbar->addWidget(m_stateCombo);
     toolbar->addStretch(1);
+    toolbar->addWidget(m_notifyBtn);
     toolbar->addWidget(m_refreshBtn);
 
     m_table = new QTableView(this);
@@ -123,6 +175,7 @@ void TurnosView::buildUi()
     m_table->setColumnWidth(TurnosModel::ColPaciente, 200);
     m_table->setColumnWidth(TurnosModel::ColTipo, 150);
     m_table->setColumnWidth(TurnosModel::ColEstado, 120);
+    m_table->setColumnWidth(TurnosModel::ColResponsable, 190);
     m_table->setWordWrap(false);
 
     m_empty = new EmptyState(
@@ -155,10 +208,35 @@ void TurnosView::buildUi()
     connect(m_pagination, &PaginationBar::pageChanged, this, &TurnosView::onPageChanged);
     connect(m_pagination, &PaginationBar::sizeChanged, this, &TurnosView::onSizeChanged);
     connect(m_refreshBtn, &QPushButton::clicked, this, [this]() { loadPage(m_page); });
+    connect(m_notifyBtn, &QPushButton::clicked, this, &TurnosView::notifySelectedPatient);
+    connect(m_table->selectionModel(), &QItemSelectionModel::currentRowChanged,
+        this, [this]() { updateNotifyButton(); });
 
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_table, &QWidget::customContextMenuRequested,
         this, &TurnosView::openContextMenu);
+}
+
+void TurnosView::updateNotifyButton()
+{
+    const QModelIndex current = m_table->currentIndex();
+    const TurnoItem *selected = current.isValid() ? m_model->itemAt(current.row()) : nullptr;
+    m_notifyBtn->setEnabled(selected
+        && selected->state == AppointmentState::PENDING
+        && selected->patientId > 0);
+}
+
+void TurnosView::notifySelectedPatient()
+{
+    const QModelIndex current = m_table->currentIndex();
+    const TurnoItem *selected = current.isValid() ? m_model->itemAt(current.row()) : nullptr;
+    if (!selected || selected->state != AppointmentState::PENDING || selected->patientId <= 0) {
+        updateNotifyButton();
+        return;
+    }
+
+    m_notifyBtn->setEnabled(false);
+    m_whatsAppService->fetchActiveTemplates();
 }
 
 void TurnosView::refresh()
@@ -239,6 +317,9 @@ void TurnosView::openContextMenu(const QPoint &pos)
     };
 
     const bool write = canWrite();
+    const UserRole role = SessionManager::instance().user().role;
+    const bool canAssign = role == UserRole::ADMIN || role == UserRole::AREA_MANAGER
+        || role == UserRole::MEDICAL || role == UserRole::NURSE;
 
     QMenu menu(this);
 
@@ -252,6 +333,14 @@ void TurnosView::openContextMenu(const QPoint &pos)
     const bool canReschedule = write
         && selected->state != AppointmentState::COMPLETED;
     reprogramar->setEnabled(canReschedule);
+
+    QAction *asignar = menu.addAction(
+        role == UserRole::MEDICAL || role == UserRole::NURSE
+            ? QStringLiteral("Asignarme este turno")
+            : QStringLiteral("Asignar a médico o enfermero…"));
+    const bool assignmentBlockedState = selected->state == AppointmentState::CANCELLED
+        || selected->state == AppointmentState::NO_SHOW;
+    asignar->setEnabled(canAssign && !assignmentBlockedState);
 
     menu.addSeparator();
 
@@ -281,6 +370,16 @@ void TurnosView::openContextMenu(const QPoint &pos)
         if (canReschedule) {
             openRescheduleDialog();
         }
+        return;
+    }
+
+    if (chosen == asignar) {
+        auto *dialog = new AssignTurnoDialog(selected->id, this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dialog, &AssignTurnoDialog::assigned, this, [this]() {
+            loadPage(m_page);
+        });
+        dialog->open();
         return;
     }
 

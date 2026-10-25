@@ -1,6 +1,6 @@
 #include "views/features/settings/SettingsView.hpp"
 
-#include "components/AppSettings.hpp"
+#include "views/components/AppSettings.hpp"
 #include "views/components/Toast.hpp"
 
 #include <QCheckBox>
