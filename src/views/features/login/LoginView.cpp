@@ -2,8 +2,10 @@
 
 #include "config/AppConfig.hpp"
 #include "services/AuthService.hpp"
+#include "views/components/PasswordReveal.hpp"
 #include "views/components/Spinner.hpp"
 
+#include <QAction>
 #include <QCheckBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -91,6 +93,8 @@ void LoginView::buildUi()
     m_passwordEdit->setEchoMode(QLineEdit::Password);
     m_passwordEdit->setObjectName(QStringLiteral("passwordEdit"));
 
+    m_revealAction = PasswordReveal::attach(m_passwordEdit);
+
     m_rememberCheck = new QCheckBox(QStringLiteral("Recordar usuario"), card);
 
     m_errorLabel = new QLabel(card);
@@ -132,6 +136,7 @@ void LoginView::setLoading(bool loading)
     m_usernameEdit->setEnabled(!loading);
     m_passwordEdit->setEnabled(!loading);
     m_rememberCheck->setEnabled(!loading);
+    m_revealAction->setEnabled(!loading);
     m_loginButton->setEnabled(!loading);
     m_loginButton->setText(
         loading ? QStringLiteral("Ingresando…") : QStringLiteral("Iniciar sesión")

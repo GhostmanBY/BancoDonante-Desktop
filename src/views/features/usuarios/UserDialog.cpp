@@ -2,8 +2,10 @@
 
 #include "models/enums/UserRole.hpp"
 #include "services/SessionManager.hpp"
+#include "views/components/PasswordReveal.hpp"
 #include "views/components/Toast.hpp"
 
+#include <QAction>
 #include <QComboBox>
 #include <QDate>
 #include <QDateEdit>
@@ -96,6 +98,7 @@ void UserDialog::buildUi()
     m_password->setPlaceholderText(isCreate()
         ? QStringLiteral("Contraseña *")
         : QStringLiteral("Dejar vacío para mantener la actual"));
+    m_revealAction = PasswordReveal::attach(m_password);
 
     m_name = new QLineEdit(this);
     m_lastname = new QLineEdit(this);
@@ -264,6 +267,7 @@ void UserDialog::submit()
     }
 
     m_acceptBtn->setEnabled(false);
+    m_revealAction->setEnabled(false);
 
     UserItem updated = m_user.value_or(UserItem{});
     updated.username = m_username->text().trimmed();
@@ -287,6 +291,7 @@ void UserDialog::submit()
 void UserDialog::onFailed(const ApiError &error)
 {
     m_acceptBtn->setEnabled(true);
+    m_revealAction->setEnabled(true);
 
     QString message = error.detail.isEmpty()
         ? QStringLiteral("No se pudo guardar el usuario.")

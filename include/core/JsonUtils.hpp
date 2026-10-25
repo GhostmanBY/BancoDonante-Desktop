@@ -32,6 +32,15 @@ inline int intOr(const QJsonObject &obj, const QString &key, int fallback = 0)
     return fallback;
 }
 
+inline std::optional<int> optInt(const QJsonObject &obj, const QString &key)
+{
+    const QJsonValue value = obj.value(key);
+    if (value.isNull() || !value.isDouble()) {
+        return std::nullopt;
+    }
+    return value.toInt();
+}
+
 inline bool boolOr(const QJsonObject &obj, const QString &key, bool fallback = false)
 {
     const QJsonValue value = obj.value(key);

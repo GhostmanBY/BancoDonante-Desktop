@@ -25,6 +25,8 @@ public:
     std::optional<double> altura() const { return m_altura; }
     std::optional<BloodGroup> bloodGroup() const { return m_bloodGroup; }
     std::optional<QDateTime> lastDonationDate() const { return m_lastDonationDate; }
+    std::optional<int> lastDonationTypeId() const { return m_lastDonationTypeId; }
+    bool hasOpenCycle() const { return m_hasOpenCycle; }
 
     void setStateDonation(PatientState state) { m_stateDonation = state; }
     void setBloodGroup(BloodGroup group) { m_bloodGroup = group; }
@@ -40,6 +42,8 @@ protected:
     std::optional<double> m_altura;
     std::optional<BloodGroup> m_bloodGroup;
     std::optional<QDateTime> m_lastDonationDate;
+    std::optional<int> m_lastDonationTypeId;
+    bool m_hasOpenCycle = false;
 };
 
 #endif

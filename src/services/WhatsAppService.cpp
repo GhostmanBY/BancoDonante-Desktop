@@ -22,23 +22,30 @@ void WhatsAppService::prepare()
 
 void WhatsAppService::handle(
     QNetworkReply *reply,
-    const std::function<void(const QByteArray &)> &onSuccess)
+    const std::function<void(const QByteArray &)> &onSuccess,
+    const std::function<void(const ApiError &)> &onFailure)
 {
-    connect(reply, &QNetworkReply::finished, this, [this, reply, onSuccess]() {
-        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        const QByteArray body = reply->readAll();
-        reply->deleteLater();
+    connect(reply, &QNetworkReply::finished, this,
+        [this, reply, onSuccess, onFailure]() {
+            const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const QByteArray body = reply->readAll();
+            reply->deleteLater();
 
-        if (reply->error() != QNetworkReply::NoError) {
-            if (status == 401) {
-                SessionManager::instance().expireSession();
+            if (reply->error() != QNetworkReply::NoError) {
+                const ApiError error = ApiError::fromJson(status, body);
+                if (status == 401) {
+                    SessionManager::instance().expireSession();
+                }
+                if (onFailure) {
+                    onFailure(error);
+                    return;
+                }
+                emit failed(error);
+                return;
             }
-            emit failed(ApiError::fromJson(status, body));
-            return;
-        }
 
-        onSuccess(body);
-    });
+            onSuccess(body);
+        });
 }
 
 void WhatsAppService::fetchConnection()
@@ -129,13 +136,30 @@ void WhatsAppService::setTemplateActive(int id, bool active)
 
 void WhatsAppService::enqueue(int patientId, const QString &motive)
 {
+    postEnqueue(patientId, motive,
+        [this]() {
+            emit enqueueSucceeded();
+        },
+        [this](const ApiError &error) {
+            emit failed(error);
+        });
+}
+
+void WhatsAppService::postEnqueue(
+    int patientId,
+    const QString &motive,
+    const std::function<void()> &onSuccess,
+    const std::function<void(const ApiError &)> &onFailure)
+{
     prepare();
     QJsonObject body;
     body.insert(QStringLiteral("patiente_id"), patientId);
     body.insert(QStringLiteral("motive"), motive);
-    handle(m_api.post(QStringLiteral("wsp-queues"), body), [this](const QByteArray &) {
-        emit enqueueSucceeded();
-    });
+    handle(m_api.post(QStringLiteral("wsp-queues"), body),
+        [onSuccess](const QByteArray &) {
+            onSuccess();
+        },
+        onFailure);
 }
 
 void WhatsAppService::fetchPendingInboundReviews()
@@ -178,13 +202,28 @@ void WhatsAppService::markInboundReviewReviewed(int id)
         });
 }
 
-void WhatsAppService::resolveInboundReview(int id, const QString &decision)
+void WhatsAppService::resolveInboundReview(
+    int id,
+    const QString &decision,
+    int patientId,
+    const QString &motive)
 {
     prepare();
     QJsonObject body;
     body.insert(QStringLiteral("decision"), decision);
     handle(m_api.patch(QStringLiteral("wsp-inbound-messages/%1/resolve").arg(id), body),
-        [this, id](const QByteArray &) {
-            emit inboundReviewResolved(id);
+        [this, id, decision, patientId, motive](const QByteArray &) {
+            if (motive.isEmpty() || patientId <= 0) {
+                emit inboundReviewResolved(id, decision, ReviewOutcome::Resolved, QString());
+                return;
+            }
+            postEnqueue(patientId, motive,
+                [this, id, decision]() {
+                    emit inboundReviewResolved(id, decision, ReviewOutcome::Notified, QString());
+                },
+                [this, id, decision](const ApiError &error) {
+                    emit inboundReviewResolved(
+                        id, decision, ReviewOutcome::NotifyFailed, error.detail);
+                });
         });
 }

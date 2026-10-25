@@ -1,7 +1,5 @@
 #include "views/features/donantes/DonantesModel.hpp"
 
-#include "views/components/AppSettings.hpp"
-
 #include <QDate>
 #include <QFont>
 
@@ -35,15 +33,6 @@ QColor estadoColor(PatientState state)
     case PatientState::SUSPENDED: return QColor(QStringLiteral("#4B5563"));
     }
     return {};
-}
-
-bool descansoCumplido(const Patientes &item)
-{
-    if (!item.lastDonationDate().has_value() || !item.lastDonationDate()->isValid()) {
-        return false;
-    }
-    const int daysAgo = -QDate::currentDate().daysTo(item.lastDonationDate()->date());
-    return daysAgo >= AppSettings::instance().restDays();
 }
 
 } // namespace
@@ -104,6 +93,15 @@ void DonantesModel::setItems(const QList<Patientes> &items)
     endResetModel();
 }
 
+void DonantesModel::setCycleRules(const QList<CycleRuleItem> &rules)
+{
+    m_rules = rules;
+    if (m_items.isEmpty()) {
+        return;
+    }
+    emit dataChanged(index(0, 0), index(m_items.size() - 1, ColumnCount - 1));
+}
+
 const Patientes *DonantesModel::itemAt(int row) const
 {
     if (row < 0 || row >= m_items.size()) {
@@ -157,7 +155,11 @@ QVariant DonantesModel::data(const QModelIndex &index, int role) const
         }
         if (column == ColUltimaDonacion) {
             if (item.lastDonationDate().has_value() && item.lastDonationDate()->isValid()) {
-                const QColor strong = descansoCumplido(item)
+                const auto cumplido = CycleRuleService::restFulfilled(m_rules, item);
+                if (!cumplido.has_value()) {
+                    return tint(QColor(QStringLiteral("#6B7280")), 0.10);
+                }
+                const QColor strong = *cumplido
                     ? QColor(QStringLiteral("#15803D"))
                     : QColor(QStringLiteral("#DC2626"));
                 return tint(strong, 0.14);
@@ -179,7 +181,11 @@ QVariant DonantesModel::data(const QModelIndex &index, int role) const
         }
         if (column == ColUltimaDonacion) {
             if (item.lastDonationDate().has_value() && item.lastDonationDate()->isValid()) {
-                return descansoCumplido(item)
+                const auto cumplido = CycleRuleService::restFulfilled(m_rules, item);
+                if (!cumplido.has_value()) {
+                    return QColor(QStringLiteral("#6B7280"));
+                }
+                return *cumplido
                     ? QColor(QStringLiteral("#15803D"))
                     : QColor(QStringLiteral("#DC2626"));
             }

@@ -1,6 +1,5 @@
 #include "views/features/settings/SettingsView.hpp"
 
-#include "views/components/AppSettings.hpp"
 #include "views/components/Toast.hpp"
 #include "services/WhatsAppService.hpp"
 
@@ -178,47 +177,6 @@ void SettingsView::buildUi()
     contentLayout->setContentsMargins(0, 2, 8, 8);
     contentLayout->setSpacing(16);
 
-    auto *donationCard = makeCard(content);
-    auto *donationLayout = new QVBoxLayout(donationCard);
-    donationLayout->setContentsMargins(20, 18, 20, 18);
-    donationLayout->setSpacing(14);
-
-    auto *donationHeader = new QVBoxLayout();
-    donationHeader->setSpacing(4);
-    donationHeader->addWidget(makeSectionTitle(QStringLiteral("Donaciones"), donationCard));
-    donationHeader->addWidget(makeHint(
-        QStringLiteral("Definí cuánto debe esperar una persona antes de volver a donar."), donationCard));
-    donationLayout->addLayout(donationHeader);
-
-    auto *restRow = new QHBoxLayout();
-    restRow->setSpacing(16);
-    auto *restInfo = new QVBoxLayout();
-    restInfo->setSpacing(3);
-    auto *restTitle = new QLabel(QStringLiteral("Plazo mínimo de descanso"), donationCard);
-    restTitle->setStyleSheet(QStringLiteral(
-        "QLabel { color: #374151; font-weight: 600; background: transparent; }"));
-    restInfo->addWidget(restTitle);
-    restInfo->addWidget(makeHint(
-        QStringLiteral("Se usa al asignar turnos y al mostrar la fecha de última donación."), donationCard));
-    restRow->addLayout(restInfo, 1);
-
-    m_restDays = new QSpinBox(donationCard);
-    m_restDays->setRange(0, 365);
-    m_restDays->setSuffix(QStringLiteral(" días"));
-    m_restDays->setMinimumWidth(150);
-    restRow->addWidget(m_restDays);
-
-    auto *saveRestBtn = new QPushButton(QStringLiteral("Guardar cambios"), donationCard);
-    saveRestBtn->setProperty("variant", "primary");
-    saveRestBtn->setMinimumWidth(150);
-    restRow->addWidget(saveRestBtn);
-    donationLayout->addLayout(restRow);
-
-    connect(saveRestBtn, &QPushButton::clicked, this, [this]() {
-        AppSettings::instance().setRestDays(m_restDays->value());
-        Toast::show(this, QStringLiteral("Ajustes guardados"), Toast::Type::Success);
-    });
-
     auto *cycleCard = makeCard(content);
     auto *cycleLayout = new QVBoxLayout(cycleCard);
     cycleLayout->setContentsMargins(20, 18, 20, 18);
@@ -257,7 +215,6 @@ void SettingsView::buildUi()
     m_templatesLayout->setSpacing(10);
     whatsAppLayout->addWidget(m_templatesBox);
 
-    contentLayout->addWidget(donationCard);
     contentLayout->addWidget(cycleCard);
     contentLayout->addWidget(whatsAppCard);
     contentLayout->addStretch(1);
@@ -498,7 +455,6 @@ void SettingsView::clearTemplateRows()
 
 void SettingsView::refresh()
 {
-    m_restDays->setValue(AppSettings::instance().restDays());
     m_ruleService->fetchAll();
     m_whatsAppService->fetchTemplates();
 }

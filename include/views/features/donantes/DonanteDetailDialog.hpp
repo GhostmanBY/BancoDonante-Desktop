@@ -3,9 +3,11 @@
 
 #include "models/Patientes.hpp"
 #include "services/ApiError.hpp"
+#include "services/CycleRuleService.hpp"
 
 #include <QDialog>
 #include <QJsonObject>
+#include <QList>
 
 class DonorService;
 class RestraintService;
@@ -45,9 +47,12 @@ private:
     void onObservations(const QJsonArray &items);
     void onFailed(const ApiError &error);
     void updateToggleLabel();
+    void updateLastDonationLabelColor();
 
     DonorService *m_service = nullptr;
     RestraintService *m_restraintService = nullptr;
+    CycleRuleService *m_ruleService = nullptr;
+    QList<CycleRuleItem> m_cycleRules;
     Patientes m_donante;
     bool m_pendingActive = true;
 

@@ -4,6 +4,7 @@
 #include "core/JsonUtils.hpp"
 #include "services/SessionManager.hpp"
 
+#include <QDate>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -27,6 +28,59 @@ CycleRuleService::CycleRuleService(QObject *parent)
     : QObject(parent),
       m_api(AppConfig::instance().baseUrl(), this)
 {
+}
+
+std::optional<CycleRuleItem> CycleRuleService::ruleFor(
+    const QList<CycleRuleItem> &rules, const Patientes &donor)
+{
+    if (!donor.lastDonationTypeId().has_value()) {
+        return std::nullopt;
+    }
+
+    const QString donorSex = ::toString(donor.sex());
+    const CycleRuleItem *specific = nullptr;
+    const CycleRuleItem *generic = nullptr;
+
+    for (const CycleRuleItem &rule : rules) {
+        if (!rule.isActive || rule.typeDonationId != *donor.lastDonationTypeId()) {
+            continue;
+        }
+        if (rule.sex.isEmpty()) {
+            if (!generic) {
+                generic = &rule;
+            }
+        } else if (rule.sex == donorSex && !specific) {
+            specific = &rule;
+        }
+    }
+
+    if (specific) {
+        return *specific;
+    }
+    if (generic) {
+        return *generic;
+    }
+    return std::nullopt;
+}
+
+int CycleRuleService::waitDaysFor(const CycleRuleItem &rule, bool hasOpenCycle)
+{
+    return hasOpenCycle ? rule.waitDays : rule.waitBetweenCyclesDays;
+}
+
+std::optional<bool> CycleRuleService::restFulfilled(
+    const QList<CycleRuleItem> &rules, const Patientes &donor)
+{
+    const auto rule = ruleFor(rules, donor);
+    if (!rule.has_value()) {
+        return std::nullopt;
+    }
+    if (!donor.lastDonationDate().has_value() || !donor.lastDonationDate()->isValid()) {
+        return std::nullopt;
+    }
+
+    const int daysSince = -QDate::currentDate().daysTo(donor.lastDonationDate()->date());
+    return daysSince >= rule->waitDays;
 }
 
 void CycleRuleService::prepare()

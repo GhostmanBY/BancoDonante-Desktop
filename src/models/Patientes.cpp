@@ -25,6 +25,9 @@ Patientes Patientes::fromJson(const QJsonObject &json)
         ? std::optional(jsonutils::parseDateTime(*lastDonationRaw))
         : std::nullopt;
 
+    model.m_lastDonationTypeId = jsonutils::optInt(json, QStringLiteral("last_donation_type_id"));
+    model.m_hasOpenCycle = jsonutils::boolOr(json, QStringLiteral("has_open_cycle"), false);
+
     return model;
 }
 

@@ -2,6 +2,7 @@
 #define DONANTESMODEL_H
 
 #include "models/Patientes.hpp"
+#include "services/CycleRuleService.hpp"
 
 #include <QAbstractTableModel>
 #include <QColor>
@@ -33,6 +34,7 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
     void setItems(const QList<Patientes> &items);
+    void setCycleRules(const QList<CycleRuleItem> &rules);
     const Patientes *itemAt(int row) const;
 
     static QColor donationGradient(const std::optional<QDateTime> &lastDonation);
@@ -43,6 +45,7 @@ private:
     static QColor tint(const QColor &color, double strength);
 
     QList<Patientes> m_items;
+    QList<CycleRuleItem> m_rules;
 };
 
 #endif

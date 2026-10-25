@@ -1,9 +1,12 @@
 #ifndef DONANTESVIEW_H
 #define DONANTESVIEW_H
 
+#include "models/Patientes.hpp"
 #include "models/enums/PatientState.hpp"
 #include "services/ApiError.hpp"
+#include "services/CycleRuleService.hpp"
 
+#include <QList>
 #include <QWidget>
 #include <optional>
 
@@ -43,6 +46,8 @@ private:
     void openDetail();
     void openContextMenu(const QPoint &pos);
     void openAppointmentDialog();
+    void openAppointmentFor(const Patientes &donor);
+    bool confirmAppointment(const QString &message);
     void openRestraintCatalog();
     void updateActionButtons();
     bool canWrite() const;
@@ -52,6 +57,10 @@ private:
 
     DonorService *m_service = nullptr;
     DonantesModel *m_model = nullptr;
+    CycleRuleService *m_ruleService = nullptr;
+    QList<CycleRuleItem> m_cycleRules;
+    std::optional<Patientes> m_pendingAppointment;
+    bool m_rulesLoaded = false;
 
     QLineEdit *m_search = nullptr;
     QComboBox *m_stateCombo = nullptr;

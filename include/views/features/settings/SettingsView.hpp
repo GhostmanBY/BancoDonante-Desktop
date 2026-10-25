@@ -26,7 +26,6 @@ private:
     void buildTemplateRow(QVBoxLayout *templatesLayout, const WSPTemplateItem &item);
     void clearTemplateRows();
 
-    QSpinBox *m_restDays = nullptr;
     CycleRuleService *m_ruleService = nullptr;
     WhatsAppService *m_whatsAppService = nullptr;
     QVBoxLayout *m_rulesLayout = nullptr;

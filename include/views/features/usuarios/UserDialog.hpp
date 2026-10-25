@@ -7,6 +7,7 @@
 #include <QDialog>
 #include <optional>
 
+class QAction;
 class QComboBox;
 class QDateEdit;
 class QLabel;
@@ -38,6 +39,7 @@ private:
 
     QLineEdit *m_username = nullptr;
     QLineEdit *m_password = nullptr;
+    QAction *m_revealAction = nullptr;
     QLineEdit *m_name = nullptr;
     QLineEdit *m_lastname = nullptr;
     QLineEdit *m_mail = nullptr;

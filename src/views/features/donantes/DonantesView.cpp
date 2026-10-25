@@ -1,6 +1,5 @@
 #include "views/features/donantes/DonantesView.hpp"
 
-#include "views/components/AppSettings.hpp"
 #include "models/enums/UserRole.hpp"
 #include "services/DonorService.hpp"
 #include "services/SessionManager.hpp"
@@ -20,6 +19,7 @@
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QLabel>
+#include <QLocale>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
@@ -46,14 +46,67 @@ const EstadoOption kEstadoOptions[] = {
     {QStringLiteral("Suspendido"), PatientState::SUSPENDED},
 };
 
+QString estadoLabel(PatientState state)
+{
+    for (const auto &option : kEstadoOptions) {
+        if (option.state == state) {
+            return option.label;
+        }
+    }
+
+    return {};
+}
+
 } // namespace
 
 DonantesView::DonantesView(QWidget *parent)
     : QWidget(parent),
       m_service(new DonorService(this)),
-      m_model(new DonantesModel(this))
+      m_model(new DonantesModel(this)),
+      m_ruleService(new CycleRuleService(this))
 {
     buildUi();
+
+    connect(m_ruleService, &CycleRuleService::fetched, this,
+        [this](const QList<CycleRuleItem> &rules) {
+            m_cycleRules = rules;
+            m_rulesLoaded = true;
+            m_model->setCycleRules(rules);
+
+            if (m_pendingAppointment.has_value()) {
+                const Patientes donor = *m_pendingAppointment;
+                m_pendingAppointment.reset();
+                openAppointmentFor(donor);
+            }
+        });
+
+    connect(m_ruleService, &CycleRuleService::failed, this, [this](const ApiError &) {
+        if (m_pendingAppointment.has_value()) {
+            const Patientes donor = *m_pendingAppointment;
+            m_pendingAppointment.reset();
+
+            if (m_rulesLoaded) {
+                openAppointmentFor(donor);
+                return;
+            }
+
+            const QString message = QStringLiteral(
+                "No pudimos verificar el historial de donaciones de %1. "
+                "¿Querés continuar con la asignación del turno?")
+                .arg(QStringLiteral("%1 %2").arg(donor.name(), donor.lastname()));
+            if (confirmAppointment(message)) {
+                openAppointmentFor(donor);
+            }
+            return;
+        }
+
+        if (!m_rulesLoaded) {
+            Toast::show(
+                this,
+                QStringLiteral("No se pudieron cargar las reglas de descanso"),
+                Toast::Type::Error);
+        }
+    });
 
     connect(m_service, &DonorService::pageFetched, this, [this](const DonantesPage &page) {
         m_hasLoadedOnce = true;
@@ -90,6 +143,7 @@ DonantesView::DonantesView(QWidget *parent)
     });
 
     loadPage(1);
+    m_ruleService->fetchAll();
 }
 
 void DonantesView::buildUi()
@@ -212,6 +266,7 @@ void DonantesView::buildUi()
 
 void DonantesView::refresh()
 {
+    m_ruleService->fetchAll();
     loadPage(m_page);
 }
 
@@ -407,24 +462,85 @@ void DonantesView::openAppointmentDialog()
         return;
     }
 
-    if (selected->lastDonationDate().has_value()
-        && selected->lastDonationDate()->isValid()
-        && QDate::currentDate() < selected->lastDonationDate()->date()
-               .addDays(AppSettings::instance().restDays())) {
-        const auto answer = QMessageBox::question(
+    if (!m_rulesLoaded) {
+        m_pendingAppointment = *selected;
+        m_ruleService->fetchAll();
+        return;
+    }
+
+    openAppointmentFor(*selected);
+}
+
+void DonantesView::openAppointmentFor(const Patientes &donor)
+{
+    if (donor.stateDonation() != PatientState::APTO) {
+        const QString nombre =
+            QStringLiteral("%1 %2").arg(donor.name(), donor.lastname());
+
+        Toast::show(
             this,
-            QStringLiteral("Plazo mínimo de descanso"),
-            QStringLiteral("Este usuario no cumplió el plazo mínimo de descanso. ¿Está seguro?"),
-            QMessageBox::Yes | QMessageBox::No,
-            QMessageBox::No);
-        if (answer != QMessageBox::Yes) {
-            return;
+            QStringLiteral("%1 no puede donar: estado actual '%2'. "
+                           "Se necesita una evaluación médica previa.")
+                .arg(nombre, estadoLabel(donor.stateDonation())),
+            Toast::Type::Error);
+        return;
+    }
+
+    const auto rule = CycleRuleService::ruleFor(m_cycleRules, donor);
+
+    if (rule.has_value()
+        && donor.lastDonationDate().has_value()
+        && donor.lastDonationDate()->isValid()) {
+        const int wait = CycleRuleService::waitDaysFor(*rule, donor.hasOpenCycle());
+        const QDate disponible = donor.lastDonationDate()->date().addDays(wait);
+
+        if (QDate::currentDate() < disponible) {
+            const QLocale esAr(QLocale::Spanish, QLocale::Argentina);
+            const QString nombre =
+                QStringLiteral("%1 %2").arg(donor.name(), donor.lastname());
+            const QString desde = esAr.toString(
+                disponible, QStringLiteral("d 'de' MMMM 'de' yyyy"));
+            const QString serie = donor.hasOpenCycle()
+                ? QStringLiteral("continuar la serie actual")
+                : QStringLiteral("iniciar una serie nueva");
+
+            const QString message = QStringLiteral(
+                "La última donación registrada de %1 fue de tipo %2. "
+                "Según el plazo configurado, debería esperar %3 días (%4); "
+                "podría volver a donar desde el %5.\n\n"
+                "¿Querés continuar y asignar el turno de todos modos?")
+                .arg(nombre)
+                .arg(rule->typeDonationName)
+                .arg(wait)
+                .arg(serie)
+                .arg(desde);
+
+            if (!confirmAppointment(message)) {
+                return;
+            }
         }
     }
 
-    auto *dialog = new AppointmentDialog(*selected, this);
+    auto *dialog = new AppointmentDialog(donor, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->open();
+}
+
+bool DonantesView::confirmAppointment(const QString &message)
+{
+    QMessageBox box(
+        QMessageBox::Warning,
+        QStringLiteral("Revisá el plazo entre donaciones"),
+        message,
+        QMessageBox::NoButton,
+        this);
+
+    QPushButton *cancelar = box.addButton(QStringLiteral("Cancelar"), QMessageBox::RejectRole);
+    box.addButton(QStringLiteral("Continuar"), QMessageBox::AcceptRole);
+    box.setDefaultButton(cancelar);
+    box.exec();
+
+    return box.clickedButton() != cancelar;
 }
 
 void DonantesView::openRestraintCatalog()

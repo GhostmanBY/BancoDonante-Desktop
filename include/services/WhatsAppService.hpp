@@ -36,6 +36,13 @@ struct WSPInboundReview
 };
 Q_DECLARE_METATYPE(WSPInboundReview)
 
+enum class ReviewOutcome
+{
+    Resolved,
+    Notified,
+    NotifyFailed,
+};
+
 class WhatsAppService : public QObject
 {
     Q_OBJECT
@@ -51,7 +58,11 @@ public:
     void enqueue(int patientId, const QString &motive);
     void fetchPendingInboundReviews();
     void markInboundReviewReviewed(int id);
-    void resolveInboundReview(int id, const QString &decision);
+    void resolveInboundReview(
+        int id,
+        const QString &decision,
+        int patientId = 0,
+        const QString &motive = QString());
 
 signals:
     void connectionFetched(const QString &state, const QString &qr);
@@ -62,12 +73,24 @@ signals:
     void enqueueSucceeded();
     void inboundReviewsFetched(const QList<WSPInboundReview> &reviews, int total);
     void inboundReviewMarked(int id);
-    void inboundReviewResolved(int id);
+    void inboundReviewResolved(
+        int id,
+        const QString &decision,
+        ReviewOutcome outcome,
+        const QString &detail);
     void failed(const ApiError &error);
 
 private:
     void prepare();
-    void handle(QNetworkReply *reply, const std::function<void(const QByteArray &)> &onSuccess);
+    void handle(
+        QNetworkReply *reply,
+        const std::function<void(const QByteArray &)> &onSuccess,
+        const std::function<void(const ApiError &)> &onFailure = {});
+    void postEnqueue(
+        int patientId,
+        const QString &motive,
+        const std::function<void()> &onSuccess,
+        const std::function<void(const ApiError &)> &onFailure);
 
     ApiClient m_api;
 };

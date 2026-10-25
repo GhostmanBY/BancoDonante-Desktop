@@ -1,6 +1,5 @@
 #include "views/features/donantes/DonanteDetailDialog.hpp"
 
-#include "views/components/AppSettings.hpp"
 #include "core/JsonUtils.hpp"
 #include "models/enums/BloodGroup.hpp"
 #include "models/enums/PatientState.hpp"
@@ -53,15 +52,6 @@ QString haceDias(const QDate &date)
         .arg(days == 1 ? QString() : QStringLiteral("s"));
 }
 
-bool descansoCumplido(const Patientes &donante)
-{
-    if (!donante.lastDonationDate().has_value() || !donante.lastDonationDate()->isValid()) {
-        return false;
-    }
-    const int daysAgo = -QDate::currentDate().daysTo(donante.lastDonationDate()->date());
-    return daysAgo >= AppSettings::instance().restDays();
-}
-
 } // namespace
 
 DonanteDetailDialog::DonanteDetailDialog(
@@ -70,6 +60,7 @@ DonanteDetailDialog::DonanteDetailDialog(
     : QDialog(parent),
       m_service(new DonorService(this)),
       m_restraintService(new RestraintService(this)),
+      m_ruleService(new CycleRuleService(this)),
       m_donante(donante)
 {
     setWindowTitle(QStringLiteral("Detalle del donante"));
@@ -97,6 +88,12 @@ DonanteDetailDialog::DonanteDetailDialog(
     connect(m_restraintService, &RestraintService::failed,
         this, &DonanteDetailDialog::onFailed);
 
+    connect(m_ruleService, &CycleRuleService::fetched, this,
+        [this](const QList<CycleRuleItem> &rules) {
+            m_cycleRules = rules;
+            updateLastDonationLabelColor();
+        });
+
     connect(m_toggleBtn, &QPushButton::clicked, this, [this]() {
         m_toggleBtn->setEnabled(false);
         emit toggleRequested(m_donante.id(), !m_donante.isActive());
@@ -105,6 +102,7 @@ DonanteDetailDialog::DonanteDetailDialog(
     refreshAddresses();
     refreshCycles();
     refreshObservaciones();
+    m_ruleService->fetchAll();
 }
 
 void DonanteDetailDialog::buildUi()
@@ -190,9 +188,7 @@ QWidget *DonanteDetailDialog::buildDatosTab()
                        haceDias(m_donante.lastDonationDate()->date()))
             : QStringLiteral("Sin donaciones"),
         page);
-    if (descansoCumplido(m_donante)) {
-        m_lastDonationLabel->setStyleSheet(QStringLiteral("color: #15803D;"));
-    }
+    updateLastDonationLabelColor();
     form->addRow(QStringLiteral("Última donación"), m_lastDonationLabel);
 
     auto *activeLabel = new QLabel(m_donante.isActive() ? QStringLiteral("Sí") : QStringLiteral("No"), page);
@@ -317,6 +313,23 @@ void DonanteDetailDialog::updateToggleLabel()
     m_toggleBtn->setText(m_donante.isActive()
         ? QStringLiteral("Desactivar")
         : QStringLiteral("Activar"));
+}
+
+void DonanteDetailDialog::updateLastDonationLabelColor()
+{
+    if (!m_lastDonationLabel) {
+        return;
+    }
+
+    const auto cumplido = CycleRuleService::restFulfilled(m_cycleRules, m_donante);
+    if (!cumplido.has_value()) {
+        m_lastDonationLabel->setStyleSheet(QString());
+        return;
+    }
+
+    m_lastDonationLabel->setStyleSheet(*cumplido
+        ? QStringLiteral("color: #15803D;")
+        : QStringLiteral("color: #DC2626;"));
 }
 
 void DonanteDetailDialog::refreshAddresses()

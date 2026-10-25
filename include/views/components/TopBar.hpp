@@ -5,8 +5,11 @@
 #include "services/WhatsAppService.hpp"
 
 #include <QFrame>
+#include <QHash>
 #include <QList>
+#include <QPointer>
 
+class QDialog;
 class QLabel;
 class QPushButton;
 class QTimer;
@@ -32,6 +35,8 @@ private:
     WhatsAppService *m_whatsAppService = nullptr;
     QTimer *m_reviewTimer = nullptr;
     QList<WSPInboundReview> m_pendingReviews;
+    QHash<int, QPointer<QWidget>> m_reviewCards;
+    QPointer<QDialog> m_reviewDialog;
 };
 
 #endif

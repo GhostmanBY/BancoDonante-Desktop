@@ -1,5 +1,6 @@
 #include "views/components/TopBar.hpp"
 #include "services/WhatsAppService.hpp"
+#include "views/components/Toast.hpp"
 #include <QDialog>
 #include <QDesktopServices>
 #include <QHBoxLayout>
@@ -17,6 +18,10 @@
 #include <exception>
 
 namespace {
+
+// Motivos fijos de los acuses (defaults de WHATSAPP_*_RESPONSE_MOTIVE del worker).
+const QString kConfirmAckMotive = QStringLiteral("appointment_confirmation_ack");
+const QString kCancelAckMotive = QStringLiteral("appointment_cancellation_ack");
 
 QString roleLabel(UserRole role)
 {
@@ -72,14 +77,57 @@ TopBar::TopBar(QWidget *parent)
             m_reviewButton->setVisible(total > 0);
             m_reviewButton->setText(QStringLiteral("Respuestas WhatsApp (%1)").arg(total));
         });
+    connect(m_whatsAppService, &WhatsAppService::inboundReviewResolved, this,
+        [this](int id, const QString &decision, ReviewOutcome outcome, const QString &detail) {
+            if (auto card = m_reviewCards.take(id)) {
+                card->deleteLater();
+            }
+            m_whatsAppService->fetchPendingInboundReviews();
+
+            QWidget *toastParent = m_reviewDialog.data();
+            if (!toastParent) {
+                return;
+            }
+            const QString base = decision == QLatin1String("confirmed")
+                ? QStringLiteral("Turno confirmado")
+                : QStringLiteral("Turno cancelado");
+            switch (outcome) {
+            case ReviewOutcome::Resolved:
+                Toast::show(toastParent, base, Toast::Type::Success);
+                break;
+            case ReviewOutcome::Notified:
+                Toast::show(
+                    toastParent,
+                    base + QStringLiteral(" · mensaje agregado a la cola de WhatsApp"),
+                    Toast::Type::Success);
+                break;
+            case ReviewOutcome::NotifyFailed:
+                Toast::show(
+                    toastParent,
+                    base + QStringLiteral(" · no se pudo encolar el mensaje: ")
+                        + (detail.isEmpty() ? QStringLiteral("error desconocido") : detail),
+                    Toast::Type::Error);
+                break;
+            }
+        });
+
+    connect(m_whatsAppService, &WhatsAppService::inboundReviewMarked, this, [this](int id) {
+        if (auto card = m_reviewCards.take(id)) {
+            card->deleteLater();
+        }
+        m_whatsAppService->fetchPendingInboundReviews();
+    });
+
     connect(m_reviewButton, &QPushButton::clicked, this, [this]() {
         auto *dialog = new QDialog(this);
         dialog->setWindowTitle(QStringLiteral("Respuestas de WhatsApp para revisar"));
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->resize(560, 480);
+        m_reviewDialog = dialog;
+        m_reviewCards.clear();
         auto *layout = new QVBoxLayout(dialog);
         auto *hint = new QLabel(
-            QStringLiteral("Confirmá o cancelá el turno desde aquí. Si el mensaje es ambiguo, contactá al donante por WhatsApp usando su nombre y teléfono; después podés cerrar la revisión."),
+            QStringLiteral("Confirmá o cancelá el turno desde aquí: al hacerlo se envía automáticamente el mensaje de acuse al donante. Si el mensaje es ambiguo, contactá al donante por WhatsApp usando su nombre y teléfono; después podés cerrar la revisión."),
             dialog);
         hint->setWordWrap(true);
         layout->addWidget(hint);
@@ -90,6 +138,7 @@ TopBar::TopBar(QWidget *parent)
         auto *contentLayout = new QVBoxLayout(content);
         for (const WSPInboundReview &review : m_pendingReviews) {
             auto *card = new QWidget(content);
+            m_reviewCards.insert(review.id, card);
             auto *cardLayout = new QVBoxLayout(card);
             auto *messageLabel = new QLabel(
                 QStringLiteral("%1 · %2\nMensaje: %3")
@@ -124,32 +173,27 @@ TopBar::TopBar(QWidget *parent)
                     confirmButton->setEnabled(false);
                     cancelButton->setEnabled(false);
                     reviewedButton->setEnabled(false);
-                    m_whatsAppService->resolveInboundReview(review.id, QStringLiteral("confirmed"));
+                    m_whatsAppService->resolveInboundReview(
+                        review.id,
+                        QStringLiteral("confirmed"),
+                        review.patientId,
+                        kConfirmAckMotive);
                 });
             connect(cancelButton, &QPushButton::clicked, m_whatsAppService,
                 [this, review, confirmButton, cancelButton, reviewedButton]() {
                     confirmButton->setEnabled(false);
                     cancelButton->setEnabled(false);
                     reviewedButton->setEnabled(false);
-                    m_whatsAppService->resolveInboundReview(review.id, QStringLiteral("cancelled"));
+                    m_whatsAppService->resolveInboundReview(
+                        review.id,
+                        QStringLiteral("cancelled"),
+                        review.patientId,
+                        kCancelAckMotive);
                 });
             connect(reviewedButton, &QPushButton::clicked, m_whatsAppService,
                 [this, review, reviewedButton]() {
                     reviewedButton->setEnabled(false);
                     m_whatsAppService->markInboundReviewReviewed(review.id);
-                });
-            const int reviewId = review.id;
-            connect(m_whatsAppService, &WhatsAppService::inboundReviewResolved, card,
-                [card, reviewId](int id) {
-                    if (id == reviewId) {
-                        card->deleteLater();
-                    }
-                });
-            connect(m_whatsAppService, &WhatsAppService::inboundReviewMarked, card,
-                [card, reviewId](int id) {
-                    if (id == reviewId) {
-                        card->deleteLater();
-                    }
                 });
             connect(m_whatsAppService, &WhatsAppService::failed, card,
                 [confirmButton, cancelButton, reviewedButton, hasAppointment](const ApiError &) {

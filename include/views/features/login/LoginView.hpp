@@ -4,6 +4,7 @@
 #include <QWidget>
 
 class AuthService;
+class QAction;
 class QLabel;
 class QLineEdit;
 class QPushButton;
@@ -30,6 +31,7 @@ private:
     AuthService *m_authService = nullptr;
     QLineEdit *m_usernameEdit = nullptr;
     QLineEdit *m_passwordEdit = nullptr;
+    QAction *m_revealAction = nullptr;
     QCheckBox *m_rememberCheck = nullptr;
     QPushButton *m_loginButton = nullptr;
     QLabel *m_errorLabel = nullptr;
