@@ -335,6 +335,11 @@ void TurnosView::openContextMenu(const QPoint &pos)
         && selected->state != AppointmentState::COMPLETED
         && selected->datetime.date() == QDate::currentDate();
     completar->setEnabled(canComplete);
+    if (selected->assignedUsers.trimmed().isEmpty()) {
+        completar->setEnabled(false);
+        completar->setToolTip(QStringLiteral(
+            "Asigná un responsable al turno antes de completarlo."));
+    }
 
     QAction *reprogramar = menu.addAction(QStringLiteral("↻  Reprogramar…"));
     const bool canReschedule = write
@@ -401,6 +406,13 @@ void TurnosView::openCompleteDialog()
     const QModelIndex current = m_table->currentIndex();
     const TurnoItem *selected = current.isValid() ? m_model->itemAt(current.row()) : nullptr;
     if (!selected || !canWrite()) {
+        return;
+    }
+    if (selected->assignedUsers.trimmed().isEmpty()) {
+        Toast::show(
+            this,
+            QStringLiteral("No se puede completar el turno: asigná un responsable primero."),
+            Toast::Type::Error);
         return;
     }
 
