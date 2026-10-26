@@ -5,7 +5,7 @@
 namespace {
 constexpr auto kBaseUrlKey = "api/baseUrl";
 constexpr auto kRememberedUsernameKey = "auth/rememberedUsername";
-constexpr auto kDefaultBaseUrl = "http://31.97.160.86/banDonante";
+constexpr auto kDefaultBaseUrl = "http://0.0.0.0:8000";
 }
 
 AppConfig &AppConfig::instance()

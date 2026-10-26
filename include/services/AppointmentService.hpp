@@ -50,6 +50,7 @@ public:
         int page,
         int size,
         const std::optional<AppointmentState> &state = std::nullopt);
+    void fetchById(int appointmentId);
     void checkAvailability(const QDateTime &datetime, int excludeAppointmentId = 0);
     void create(const CreateAppointmentDTO &dto);
     void update(const UpdateAppointmentDTO &dto);
@@ -59,6 +60,7 @@ public:
 
 signals:
     void pageFetched(const TurnosPage &page);
+    void appointmentFetched(const QJsonObject &appointment);
     void availabilityChecked(bool available);
     void createSucceeded();
     void updateSucceeded();

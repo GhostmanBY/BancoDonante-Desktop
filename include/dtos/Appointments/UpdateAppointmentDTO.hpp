@@ -13,12 +13,16 @@ public:
         AppointmentState state,
         AppointmentType type,
         int patientId,
-        QString observation);
+        QString observation,
+        QJsonObject clinicalData = {});
 
     QJsonObject toJson() const;
 
     int id;
     AppointmentState state;
+
+private:
+    QJsonObject m_clinicalData;
 };
 
 #endif

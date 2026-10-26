@@ -37,6 +37,7 @@ private:
     void onSizeChanged(int size);
     void openContextMenu(const QPoint &pos);
     void openCompleteDialog();
+    void openDetailDialog();
     void openRescheduleDialog();
     void changeSelectedState(AppointmentState state);
     void markExpiredAsNoShow(const QList<TurnoItem> &items);

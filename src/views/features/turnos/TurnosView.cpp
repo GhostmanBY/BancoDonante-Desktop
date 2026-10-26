@@ -10,6 +10,7 @@
 #include "views/features/turnos/CompleteTurnoDialog.hpp"
 #include "views/features/turnos/AssignTurnoDialog.hpp"
 #include "views/features/turnos/RescheduleTurnoDialog.hpp"
+#include "views/features/turnos/TurnoDetailDialog.hpp"
 #include "views/features/turnos/TurnosModel.hpp"
 
 #include <QComboBox>
@@ -211,6 +212,12 @@ void TurnosView::buildUi()
     connect(m_notifyBtn, &QPushButton::clicked, this, &TurnosView::notifySelectedPatient);
     connect(m_table->selectionModel(), &QItemSelectionModel::currentRowChanged,
         this, [this]() { updateNotifyButton(); });
+    connect(m_table, &QTableView::doubleClicked, this, [this](const QModelIndex &index) {
+        if (index.isValid()) {
+            m_table->selectRow(index.row());
+            openDetailDialog();
+        }
+    });
 
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_table, &QWidget::customContextMenuRequested,
@@ -402,6 +409,19 @@ void TurnosView::openCompleteDialog()
     connect(dialog, &CompleteTurnoDialog::completed, this, [this]() {
         loadPage(m_page);
     });
+    dialog->open();
+}
+
+void TurnosView::openDetailDialog()
+{
+    const QModelIndex current = m_table->currentIndex();
+    const TurnoItem *selected = current.isValid() ? m_model->itemAt(current.row()) : nullptr;
+    if (!selected) {
+        return;
+    }
+
+    auto *dialog = new TurnoDetailDialog(selected->id, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->open();
 }
 

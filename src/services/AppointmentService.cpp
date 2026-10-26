@@ -138,6 +138,16 @@ void AppointmentService::fetchPage(
     });
 }
 
+void AppointmentService::fetchById(int appointmentId)
+{
+    prepare();
+    QNetworkReply *reply = m_api.get(
+        QStringLiteral("appointments/%1").arg(appointmentId));
+    handle(reply, 0, [this](int, const QByteArray &body) {
+        emit appointmentFetched(QJsonDocument::fromJson(body).object());
+    });
+}
+
 void AppointmentService::checkAvailability(
     const QDateTime &datetime,
     int excludeAppointmentId)
