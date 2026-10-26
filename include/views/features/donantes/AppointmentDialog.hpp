@@ -6,6 +6,7 @@
 #include "services/TypeDonationService.hpp"
 
 #include <QDialog>
+#include <QDateTime>
 #include <QJsonObject>
 #include <QList>
 
@@ -41,6 +42,7 @@ private:
     TypeDonationService *m_typeService = nullptr;
     DonorService *m_donorService = nullptr;
     Patientes m_donante;
+    QDateTime m_pendingDatetime;
 
     bool m_hasOpenCycle = false;
 

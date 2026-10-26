@@ -30,7 +30,8 @@ QJsonObject CreateAppointmentDTO::toJson() const
 {
     QJsonObject json;
     json.insert(QStringLiteral("appointment_datetime"),
-                appointmentDatetime.toUTC().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+                appointmentDatetime.toLocalTime().toString(
+                    QStringLiteral("yyyy-MM-dd HH:mm:ss")));
     json.insert(QStringLiteral("type"), ::toString(type));
     json.insert(QStringLiteral("patient_id"), patientId);
     json.insert(QStringLiteral("observation"), observation);

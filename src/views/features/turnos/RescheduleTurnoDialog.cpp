@@ -38,6 +38,27 @@ RescheduleTurnoDialog::RescheduleTurnoDialog(const TurnoItem &item, QWidget *par
         accept();
     });
     connect(m_service, &AppointmentService::failed, this, &RescheduleTurnoDialog::onFailed);
+    connect(m_service, &AppointmentService::availabilityChecked, this, [this](bool available) {
+        if (!available) {
+            m_date->setEnabled(true);
+            m_time->setEnabled(true);
+            m_acceptBtn->setEnabled(true);
+            const QString message =
+                QStringLiteral("Ya existe un turno en esa fecha y horario.");
+            m_formError->setText(message);
+            m_formError->setVisible(true);
+            Toast::show(this, message, Toast::Type::Error);
+            return;
+        }
+
+        m_service->update(UpdateAppointmentDTO(
+            m_item.id,
+            m_pendingDatetime,
+            AppointmentState::RESCHEDULED,
+            m_item.type,
+            m_item.patientId,
+            m_item.observation));
+    });
 }
 
 void RescheduleTurnoDialog::buildUi()
@@ -87,7 +108,9 @@ void RescheduleTurnoDialog::buildUi()
     m_date->setDisplayFormat(QStringLiteral("dddd d 'de' MMMM 'de' yyyy"));
     m_date->setMinimumWidth(280);
 
-    QDate newDate = m_item.datetime.isValid() ? m_item.datetime.date() : QDate::currentDate();
+    QDate newDate = m_item.datetime.isValid()
+        ? m_item.datetime.toLocalTime().date()
+        : QDate::currentDate();
     if (newDate < QDate::currentDate()) {
         newDate = QDate::currentDate().addDays(1);
     }
@@ -147,20 +170,18 @@ void RescheduleTurnoDialog::submit()
         return;
     }
     m_formError->setVisible(false);
+    m_pendingDatetime = when;
+    m_date->setEnabled(false);
+    m_time->setEnabled(false);
     m_acceptBtn->setEnabled(false);
-
-    m_service->update(UpdateAppointmentDTO(
-        m_item.id,
-        when,
-        AppointmentState::RESCHEDULED,
-        m_item.type,
-        m_item.patientId,
-        m_item.observation));
+    m_service->checkAvailability(when, m_item.id);
 }
 
 void RescheduleTurnoDialog::onFailed(const ApiError &error)
 {
     m_acceptBtn->setEnabled(true);
+    m_date->setEnabled(true);
+    m_time->setEnabled(true);
     const QString message = error.detail.isEmpty()
         ? QStringLiteral("No se pudo reprogramar el turno")
         : error.detail;

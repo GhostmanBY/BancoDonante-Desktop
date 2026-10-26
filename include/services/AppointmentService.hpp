@@ -50,6 +50,7 @@ public:
         int page,
         int size,
         const std::optional<AppointmentState> &state = std::nullopt);
+    void checkAvailability(const QDateTime &datetime, int excludeAppointmentId = 0);
     void create(const CreateAppointmentDTO &dto);
     void update(const UpdateAppointmentDTO &dto);
     void changeState(int id, AppointmentState state);
@@ -58,6 +59,7 @@ public:
 
 signals:
     void pageFetched(const TurnosPage &page);
+    void availabilityChecked(bool available);
     void createSucceeded();
     void updateSucceeded();
     void changeStateSucceeded();
@@ -67,6 +69,11 @@ signals:
 
 private:
     void prepare();
+    void fetchAvailabilityPage(
+        const QDateTime &datetime,
+        int excludeAppointmentId,
+        int page,
+        quint64 requestSeq);
     void handle(
         QNetworkReply *reply,
         quint64 requestSeq,
@@ -74,6 +81,7 @@ private:
 
     ApiClient m_api;
     quint64 m_pageSeq = 0;
+    quint64 m_availabilitySeq = 0;
 };
 
 #endif

@@ -14,6 +14,8 @@
 
 namespace {
 
+constexpr int kAvailabilityPageSize = 100;
+
 QByteArray pageQuery(int page, int size)
 {
     QUrlQuery query;
@@ -134,6 +136,61 @@ void AppointmentService::fetchPage(
         result.size = size;
         emit pageFetched(result);
     });
+}
+
+void AppointmentService::checkAvailability(
+    const QDateTime &datetime,
+    int excludeAppointmentId)
+{
+    const quint64 seq = ++m_availabilitySeq;
+    fetchAvailabilityPage(datetime, excludeAppointmentId, 1, seq);
+}
+
+void AppointmentService::fetchAvailabilityPage(
+    const QDateTime &datetime,
+    int excludeAppointmentId,
+    int page,
+    quint64 requestSeq)
+{
+    prepare();
+    QNetworkReply *reply = m_api.get(withQuery(
+        QStringLiteral("appointments"),
+        pageQuery(page, kAvailabilityPageSize)));
+    handle(reply, requestSeq,
+        [this, datetime, excludeAppointmentId, page, requestSeq](
+            int, const QByteArray &body) {
+            if (requestSeq != m_availabilitySeq) {
+                return;
+            }
+
+            const QJsonObject json = QJsonDocument::fromJson(body).object();
+            const TurnosPage result = TurnosPage::fromJson(json);
+            for (const TurnoItem &item : result.data) {
+                const bool occupiesSlot = item.state == AppointmentState::PENDING
+                    || item.state == AppointmentState::CONFIRMED
+                    || item.state == AppointmentState::RESCHEDULED;
+                if (item.id != excludeAppointmentId
+                    && occupiesSlot
+                    && item.datetime.isValid()
+                    && item.datetime.toLocalTime() == datetime.toLocalTime()) {
+                    emit availabilityChecked(false);
+                    return;
+                }
+            }
+
+            int totalPages = result.totalPages;
+            if (totalPages <= 0 && result.total > 0) {
+                totalPages = (result.total + kAvailabilityPageSize - 1)
+                    / kAvailabilityPageSize;
+            }
+            if (page < totalPages) {
+                fetchAvailabilityPage(
+                    datetime, excludeAppointmentId, page + 1, requestSeq);
+                return;
+            }
+
+            emit availabilityChecked(true);
+        });
 }
 
 void AppointmentService::create(const CreateAppointmentDTO &dto)

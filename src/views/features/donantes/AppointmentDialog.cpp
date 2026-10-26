@@ -41,6 +41,40 @@ AppointmentDialog::AppointmentDialog(const Patientes &donante, QWidget *parent)
         accept();
     });
     connect(m_service, &AppointmentService::failed, this, &AppointmentDialog::onFailed);
+    connect(m_service, &AppointmentService::availabilityChecked, this, [this](bool available) {
+        if (!available) {
+            m_date->setEnabled(true);
+            m_time->setEnabled(true);
+            m_acceptBtn->setEnabled(true);
+            const QString message =
+                QStringLiteral("Ya existe un turno en esa fecha y horario.");
+            m_formError->setText(message);
+            m_formError->setVisible(true);
+            Toast::show(this, message, Toast::Type::Error);
+            return;
+        }
+
+        const auto type = static_cast<AppointmentType>(m_type->currentData().toInt());
+        const int typeDonationId = m_donationType->currentData().toInt();
+        const std::optional<int> donationTypeId =
+            (type == AppointmentType::DONATION && typeDonationId >= 0)
+                ? std::optional(typeDonationId)
+                : std::nullopt;
+
+        QString seriesAction;
+        if (type == AppointmentType::DONATION && m_hasOpenCycle) {
+            seriesAction = m_seriesNew->isChecked() ? QStringLiteral("new")
+                                                    : QStringLiteral("continue");
+        }
+
+        m_service->create(CreateAppointmentDTO(
+            m_pendingDatetime,
+            type,
+            m_donante.id(),
+            m_observation->text().trimmed(),
+            donationTypeId,
+            seriesAction));
+    });
 
     connect(m_typeService, &TypeDonationService::fetched,
         this, &AppointmentDialog::onDonationTypes);
@@ -209,33 +243,18 @@ void AppointmentDialog::submit()
         return;
     }
     m_formError->setVisible(false);
-
-    const auto type = static_cast<AppointmentType>(m_type->currentData().toInt());
-    const int typeDonationId = m_donationType->currentData().toInt();
-    const std::optional<int> donationTypeId =
-        (type == AppointmentType::DONATION && typeDonationId >= 0)
-            ? std::optional(typeDonationId)
-            : std::nullopt;
-
-    QString seriesAction;
-    if (type == AppointmentType::DONATION && m_hasOpenCycle) {
-        seriesAction = m_seriesNew->isChecked() ? QStringLiteral("new")
-                                                : QStringLiteral("continue");
-    }
-
+    m_pendingDatetime = when;
+    m_date->setEnabled(false);
+    m_time->setEnabled(false);
     m_acceptBtn->setEnabled(false);
-    m_service->create(CreateAppointmentDTO(
-        when,
-        type,
-        m_donante.id(),
-        m_observation->text().trimmed(),
-        donationTypeId,
-        seriesAction));
+    m_service->checkAvailability(when);
 }
 
 void AppointmentDialog::onFailed(const ApiError &error)
 {
     m_acceptBtn->setEnabled(true);
+    m_date->setEnabled(true);
+    m_time->setEnabled(true);
     const QString message = error.detail.isEmpty()
         ? QStringLiteral("No se pudo crear el turno")
         : error.detail;

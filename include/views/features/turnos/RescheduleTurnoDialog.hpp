@@ -3,6 +3,7 @@
 
 #include "services/AppointmentService.hpp"
 
+#include <QDateTime>
 #include <QDialog>
 
 class QComboBox;
@@ -27,6 +28,7 @@ private:
 
     TurnoItem m_item;
     AppointmentService *m_service = nullptr;
+    QDateTime m_pendingDatetime;
 
     QDateEdit *m_date = nullptr;
     QComboBox *m_time = nullptr;
