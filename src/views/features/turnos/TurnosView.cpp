@@ -23,6 +23,7 @@
 #include <QMenu>
 #include <QModelIndex>
 #include <QPushButton>
+#include <QStringList>
 #include <QStackedWidget>
 #include <QTableView>
 #include <QVBoxLayout>
@@ -44,6 +45,18 @@ const EstadoOption kEstadoOptions[] = {
     {appointmentStateLabel(AppointmentState::RESCHEDULED), AppointmentState::RESCHEDULED},
     {appointmentStateLabel(AppointmentState::NO_SHOW), AppointmentState::NO_SHOW},
 };
+
+int assignedResponsibleCount(const QString &assignedUsers)
+{
+    const QStringList names = assignedUsers.split(QLatin1Char(','), Qt::SkipEmptyParts);
+    int count = 0;
+    for (const QString &name : names) {
+        if (!name.trimmed().isEmpty()) {
+            ++count;
+        }
+    }
+    return count;
+}
 
 } // namespace
 
@@ -335,10 +348,12 @@ void TurnosView::openContextMenu(const QPoint &pos)
         && selected->state != AppointmentState::COMPLETED
         && selected->datetime.date() == QDate::currentDate();
     completar->setEnabled(canComplete);
-    if (selected->assignedUsers.trimmed().isEmpty()) {
+    const int responsibleCount = assignedResponsibleCount(selected->assignedUsers);
+    if (responsibleCount != 1) {
         completar->setEnabled(false);
-        completar->setToolTip(QStringLiteral(
-            "Asigná un responsable al turno antes de completarlo."));
+        completar->setToolTip(responsibleCount == 0
+            ? QStringLiteral("Asigná un responsable al turno antes de completarlo.")
+            : QStringLiteral("El turno debe tener un solo responsable para poder completarlo."));
     }
 
     QAction *reprogramar = menu.addAction(QStringLiteral("↻  Reprogramar…"));
@@ -352,7 +367,11 @@ void TurnosView::openContextMenu(const QPoint &pos)
             : QStringLiteral("Asignar a médico o enfermero…"));
     const bool assignmentBlockedState = selected->state == AppointmentState::CANCELLED
         || selected->state == AppointmentState::NO_SHOW;
-    asignar->setEnabled(canAssign && !assignmentBlockedState);
+    const bool alreadyHasResponsible = assignedResponsibleCount(selected->assignedUsers) > 0;
+    asignar->setEnabled(canAssign && !assignmentBlockedState && !alreadyHasResponsible);
+    if (alreadyHasResponsible) {
+        asignar->setToolTip(QStringLiteral("El turno ya tiene un responsable asignado."));
+    }
 
     menu.addSeparator();
 
@@ -386,6 +405,13 @@ void TurnosView::openContextMenu(const QPoint &pos)
     }
 
     if (chosen == asignar) {
+        if (alreadyHasResponsible) {
+            Toast::show(
+                this,
+                QStringLiteral("El turno ya tiene un responsable asignado."),
+                Toast::Type::Info);
+            return;
+        }
         auto *dialog = new AssignTurnoDialog(selected->id, this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         connect(dialog, &AssignTurnoDialog::assigned, this, [this]() {
@@ -408,10 +434,13 @@ void TurnosView::openCompleteDialog()
     if (!selected || !canWrite()) {
         return;
     }
-    if (selected->assignedUsers.trimmed().isEmpty()) {
+    const int responsibleCount = assignedResponsibleCount(selected->assignedUsers);
+    if (responsibleCount != 1) {
         Toast::show(
             this,
-            QStringLiteral("No se puede completar el turno: asigná un responsable primero."),
+            responsibleCount == 0
+                ? QStringLiteral("No se puede completar el turno: asigná un responsable primero.")
+                : QStringLiteral("No se puede completar el turno: debe tener un solo responsable asignado."),
             Toast::Type::Error);
         return;
     }
