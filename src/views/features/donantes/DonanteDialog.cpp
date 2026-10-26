@@ -21,6 +21,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QScrollArea>
 #include <QStyle>
 #include <QVBoxLayout>
@@ -40,6 +42,9 @@ const PatientState kStates[] = {
     PatientState::NO_APTO,
     PatientState::SUSPENDED,
 };
+
+const QRegularExpression kPersonNamePattern(QStringLiteral("^[\\p{L} ]+$"));
+const QRegularExpression kDocumentNumberPattern(QStringLiteral("^[0-9]+$"));
 
 QString stateLabel(PatientState state)
 {
@@ -124,8 +129,12 @@ void DonanteDialog::buildUi()
 
     m_name = new QLineEdit(this);
     m_name->setPlaceholderText(QStringLiteral("Nombre"));
+    m_name->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("^[\\p{L} ]*$")), m_name));
     m_lastname = new QLineEdit(this);
     m_lastname->setPlaceholderText(QStringLiteral("Apellido"));
+    m_lastname->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("^[\\p{L} ]*$")), m_lastname));
     m_mail = new QLineEdit(this);
     m_mail->setPlaceholderText(QStringLiteral("nombre@mail.com"));
     m_phone = new QLineEdit(this);
@@ -135,6 +144,8 @@ void DonanteDialog::buildUi()
     m_documentType->addItems({QStringLiteral("DNI"), QStringLiteral("LC"), QStringLiteral("LE"), QStringLiteral("Pasaporte")});
     m_documentNumber = new QLineEdit(this);
     m_documentNumber->setPlaceholderText(QStringLiteral("Número"));
+    m_documentNumber->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("^[0-9]*$")), m_documentNumber));
 
     m_birthDate = new QDateEdit(this);
     m_birthDate->setCalendarPopup(true);
@@ -306,14 +317,14 @@ bool DonanteDialog::validate()
         ok = ok && valid;
     };
 
-    check(m_name, !m_name->text().trimmed().isEmpty());
-    check(m_lastname, !m_lastname->text().trimmed().isEmpty());
+    check(m_name, kPersonNamePattern.match(m_name->text()).hasMatch());
+    check(m_lastname, kPersonNamePattern.match(m_lastname->text()).hasMatch());
     check(m_mail, m_mail->text().contains(QLatin1Char('@')));
     check(m_phone, m_phone->text().trimmed().size() >= 6);
-    check(m_documentNumber, !m_documentNumber->text().trimmed().isEmpty());
+    check(m_documentNumber, kDocumentNumberPattern.match(m_documentNumber->text()).hasMatch());
 
     if (!ok) {
-        m_formError->setText(QStringLiteral("Revisá los campos marcados: nombre, apellido, mail válido, teléfono (mín. 6 caracteres) y documento."));
+        m_formError->setText(QStringLiteral("Revisá los campos marcados: nombre y apellido (solo letras y espacios), mail válido, teléfono (mín. 6 caracteres) y documento (solo números)."));
         m_formError->setVisible(true);
     } else {
         m_formError->setVisible(false);

@@ -41,10 +41,12 @@ private:
     void refreshAddresses();
     void refreshCycles();
     void refreshObservaciones();
+    void refreshRestricciones();
     void onAddresses(const QJsonObject &page);
     void onCycles(const QJsonObject &page);
     void onCycleDetail(const QJsonObject &cycle);
     void onObservations(const QJsonArray &items);
+    void onRestraints(const QJsonArray &items);
     void onFailed(const ApiError &error);
     void updateToggleLabel();
     void updateLastDonationLabelColor();
@@ -58,6 +60,7 @@ private:
 
     QLabel *m_stateLabel = nullptr;
     QLabel *m_lastDonationLabel = nullptr;
+    QLabel *m_restraintLabel = nullptr;
     QPushButton *m_toggleBtn = nullptr;
 
     QTableWidget *m_addressesTable = nullptr;

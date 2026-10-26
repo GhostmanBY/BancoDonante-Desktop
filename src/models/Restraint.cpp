@@ -11,7 +11,10 @@ Restraint Restraint::fromJson(const QJsonObject &json)
         jsonutils::stringOr(json, QStringLiteral("estimated_start_date")));
     model.m_estimatedEndDate = jsonutils::parseDateTime(
         jsonutils::stringOr(json, QStringLiteral("estimated_end_date")));
-    model.m_isActive = jsonutils::boolOr(json, QStringLiteral("isActive"), true);
+    model.m_isActive = jsonutils::boolOr(
+        json,
+        QStringLiteral("is_active"),
+        jsonutils::boolOr(json, QStringLiteral("isActive"), true));
     return model;
 }
 

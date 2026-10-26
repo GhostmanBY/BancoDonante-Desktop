@@ -49,6 +49,9 @@ public:
     // GET /patientes/{id}/observations — historial documental.
     void fetchObservations(int patientId);
 
+    // GET /patientes/{id}/restraints — restricciones del paciente.
+    void fetchRestraints(int patientId);
+
     // GET /restraint-templates — catálogo global completo
     // (activo e inactivo).
     void fetchTemplates();
@@ -63,6 +66,7 @@ public:
 signals:
     void restraintAssigned(int cancelledAppointments);
     void observationsFetched(const QJsonArray &items);
+    void restraintsFetched(const QJsonArray &items);
     void templatesFetched(const QList<RestraintTemplateItem> &templates);
     void templateSaved(int id);
     void failed(const ApiError &error);

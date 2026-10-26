@@ -15,6 +15,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QScrollArea>
 #include <QStyle>
 #include <QVBoxLayout>
@@ -33,6 +35,9 @@ const RoleOption kRoleOptions[] = {
     {userRoleLabel(UserRole::AREA_MANAGER), UserRole::AREA_MANAGER},
     {userRoleLabel(UserRole::ADMIN), UserRole::ADMIN},
 };
+
+const QRegularExpression kPersonNamePattern(QStringLiteral("^[\\p{L} ]+$"));
+const QRegularExpression kDocumentNumberPattern(QStringLiteral("^[0-9]+$"));
 
 } // namespace
 
@@ -101,7 +106,11 @@ void UserDialog::buildUi()
     m_revealAction = PasswordReveal::attach(m_password);
 
     m_name = new QLineEdit(this);
+    m_name->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("^[\\p{L} ]*$")), m_name));
     m_lastname = new QLineEdit(this);
+    m_lastname->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("^[\\p{L} ]*$")), m_lastname));
     m_mail = new QLineEdit(this);
     m_mail->setPlaceholderText(QStringLiteral("nombre@mail.com"));
     m_phone = new QLineEdit(this);
@@ -114,6 +123,8 @@ void UserDialog::buildUi()
         QStringLiteral("Pasaporte"),
     });
     m_documentNumber = new QLineEdit(this);
+    m_documentNumber->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("^[0-9]*$")), m_documentNumber));
 
     m_birthDate = new QDateEdit(this);
     m_birthDate->setCalendarPopup(true);
@@ -239,19 +250,19 @@ bool UserDialog::validate()
     };
 
     check(m_username, !m_username->text().trimmed().isEmpty());
-    check(m_name, !m_name->text().trimmed().isEmpty());
-    check(m_lastname, !m_lastname->text().trimmed().isEmpty());
+    check(m_name, kPersonNamePattern.match(m_name->text()).hasMatch());
+    check(m_lastname, kPersonNamePattern.match(m_lastname->text()).hasMatch());
     check(m_mail, m_mail->text().contains(QLatin1Char('@')));
     check(m_phone, m_phone->text().trimmed().size() >= 6);
-    check(m_documentNumber, !m_documentNumber->text().trimmed().isEmpty());
+    check(m_documentNumber, kDocumentNumberPattern.match(m_documentNumber->text()).hasMatch());
     if (isCreate()) {
         check(m_password, m_password->text().size() >= 6);
     }
 
     if (!ok) {
         m_formError->setText(isCreate()
-            ? QStringLiteral("Revisá los campos marcados: usuario, contraseña (mín. 6 caracteres), nombre, apellido, mail válido, teléfono (mín. 6 caracteres) y documento.")
-            : QStringLiteral("Revisá los campos marcados: usuario, nombre, apellido, mail válido, teléfono (mín. 6 caracteres) y documento."));
+            ? QStringLiteral("Revisá los campos marcados: usuario, contraseña (mín. 6 caracteres), nombre y apellido (solo letras y espacios), mail válido, teléfono (mín. 6 caracteres) y documento (solo números).")
+            : QStringLiteral("Revisá los campos marcados: usuario, nombre y apellido (solo letras y espacios), mail válido, teléfono (mín. 6 caracteres) y documento (solo números)."));
         m_formError->setVisible(true);
     } else {
         m_formError->setVisible(false);

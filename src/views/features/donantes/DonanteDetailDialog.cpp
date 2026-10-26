@@ -4,6 +4,7 @@
 #include "models/enums/BloodGroup.hpp"
 #include "models/enums/PatientState.hpp"
 #include "models/enums/UserRole.hpp"
+#include "models/Restraint.hpp"
 #include "services/DonorService.hpp"
 #include "services/RestraintService.hpp"
 #include "services/SessionManager.hpp"
@@ -11,6 +12,7 @@
 #include "views/features/donantes/AddressDialog.hpp"
 
 #include <QDialogButtonBox>
+#include <QDate>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -20,6 +22,7 @@
 #include <QPushButton>
 #include <QTabWidget>
 #include <QTableWidget>
+#include <QStringList>
 #include <QVBoxLayout>
 
 namespace {
@@ -85,6 +88,8 @@ DonanteDetailDialog::DonanteDetailDialog(
 
     connect(m_restraintService, &RestraintService::observationsFetched,
         this, &DonanteDetailDialog::onObservations);
+    connect(m_restraintService, &RestraintService::restraintsFetched,
+        this, &DonanteDetailDialog::onRestraints);
     connect(m_restraintService, &RestraintService::failed,
         this, &DonanteDetailDialog::onFailed);
 
@@ -102,6 +107,7 @@ DonanteDetailDialog::DonanteDetailDialog(
     refreshAddresses();
     refreshCycles();
     refreshObservaciones();
+    refreshRestricciones();
     m_ruleService->fetchAll();
 }
 
@@ -180,6 +186,10 @@ QWidget *DonanteDetailDialog::buildDatosTab()
     m_stateLabel = new QLabel(estadoLabel(m_donante.stateDonation()), page);
     m_stateLabel->setStyleSheet(QStringLiteral("font-weight: 600;"));
     form->addRow(QStringLiteral("Estado de donación"), m_stateLabel);
+
+    m_restraintLabel = hinted(QStringLiteral("Cargando…"), page);
+    m_restraintLabel->setWordWrap(true);
+    form->addRow(QStringLiteral("Restricción"), m_restraintLabel);
 
     m_lastDonationLabel = new QLabel(
         m_donante.lastDonationDate().has_value() && m_donante.lastDonationDate()->isValid()
@@ -425,6 +435,10 @@ void DonanteDetailDialog::onCycleDetail(const QJsonObject &cycle)
 void DonanteDetailDialog::onFailed(const ApiError &error)
 {
     m_toggleBtn->setEnabled(true);
+    if (m_restraintLabel
+        && m_restraintLabel->text() == QStringLiteral("Cargando…")) {
+        m_restraintLabel->setText(QStringLiteral("No se pudo cargar"));
+    }
     Toast::show(
         this,
         error.detail.isEmpty() ? QStringLiteral("Error al comunicarse con el servidor") : error.detail,
@@ -458,6 +472,11 @@ void DonanteDetailDialog::refreshObservaciones()
     m_restraintService->fetchObservations(m_donante.id());
 }
 
+void DonanteDetailDialog::refreshRestricciones()
+{
+    m_restraintService->fetchRestraints(m_donante.id());
+}
+
 void DonanteDetailDialog::onObservations(const QJsonArray &items)
 {
     m_observationsTable->setRowCount(items.size());
@@ -474,4 +493,37 @@ void DonanteDetailDialog::onObservations(const QJsonArray &items)
         m_observationsTable->setItem(i, 1, new QTableWidgetItem(
             texto.isEmpty() ? QStringLiteral("—") : texto));
     }
+}
+
+void DonanteDetailDialog::onRestraints(const QJsonArray &items)
+{
+    QStringList currentRestrictions;
+    const QDate today = QDate::currentDate();
+    for (const QJsonValue &value : items) {
+        const Restraint restraint = Restraint::fromJson(value.toObject());
+        const QDate start = restraint.estimatedStartDate().date();
+        const QDate end = restraint.estimatedEndDate().date();
+
+        if (!restraint.isActive()
+            || (start.isValid() && start > today)
+            || (end.isValid() && end < today)) {
+            continue;
+        }
+
+        QString description = restraint.motivo();
+        if (start.isValid() || end.isValid()) {
+            const QString startText = start.isValid()
+                ? start.toString(QStringLiteral("dd/MM/yyyy"))
+                : QStringLiteral("—");
+            const QString endText = end.isValid()
+                ? end.toString(QStringLiteral("dd/MM/yyyy"))
+                : QStringLiteral("—");
+            description += QStringLiteral(" · %1 al %2").arg(startText, endText);
+        }
+        currentRestrictions.append(description);
+    }
+
+    m_restraintLabel->setText(currentRestrictions.isEmpty()
+        ? QStringLiteral("Sin restricción")
+        : currentRestrictions.join(QStringLiteral("\n")));
 }

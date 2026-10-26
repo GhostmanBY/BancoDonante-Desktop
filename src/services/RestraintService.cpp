@@ -85,6 +85,30 @@ void RestraintService::fetchObservations(int patientId)
     });
 }
 
+void RestraintService::fetchRestraints(int patientId)
+{
+    prepare();
+    QNetworkReply *reply = m_api.get(
+        QStringLiteral("patientes/%1/restraints").arg(patientId));
+    handle(reply, [this](int, const QByteArray &body) {
+        const QJsonDocument document = QJsonDocument::fromJson(body);
+        if (document.isArray()) {
+            emit restraintsFetched(document.array());
+            return;
+        }
+
+        const QJsonObject json = document.object();
+        QJsonArray items = json.value(QStringLiteral("data")).toArray();
+        if (items.isEmpty()) {
+            items = json.value(QStringLiteral("items")).toArray();
+        }
+        if (items.isEmpty() && json.contains(QStringLiteral("motivo"))) {
+            items.append(json);
+        }
+        emit restraintsFetched(items);
+    });
+}
+
 void RestraintService::fetchTemplates()
 {
     prepare();
